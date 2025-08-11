@@ -1,0 +1,12 @@
+/*
+!RAG
+RAG/__pycache__/
+RAG/data/*
+!data
+data/*
+!*.py
+!README.md
+!.gitignore
+!requirement.txt
+
+.DS_Store
