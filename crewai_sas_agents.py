@@ -1,17 +1,28 @@
 #!/usr/bin/env python3
 """
 CrewAI SAS Analysis System - Unified Agent Framework
-Two-agent system: RAG model selector + SasView fitter
+Multi-agent system: Coordinator + RAG model selector + SasView fitter + Synthetic data generator
 """
 
 import os
+import re
+import json
 from typing import Dict, Any
-from sasview_tool import sasview_fit
 from pydantic import BaseModel
 
 # CrewAI imports
 from crewai import Agent, Task, Crew, Process, LLM
 from crewai.tools import BaseTool
+
+# Import tools from SAS package
+try:
+    from SAS.fitting import sasview_fit, sasview_fit_tool
+    from SAS.generation import generate_sasview_data
+    SAS_TOOLS_AVAILABLE = True
+    print("✅ SAS tools available")
+except ImportError as e:
+    SAS_TOOLS_AVAILABLE = False
+    print(f"⚠️  SAS tools not available: {e}")
 
 # RAG system import
 try:
@@ -41,6 +52,15 @@ class SasViewFittingInput(BaseModel):
     parameter_guidance: str = ""
 
 
+class SyntheticDataInput(BaseModel):
+    """Input schema for synthetic data generation tool"""
+    sample_description: str
+    model_name: str = None
+    params: dict = None
+    q_values: list = None  # User-specified q range [q_min, q_max, num_points] or full q array
+    q_range: str = None    # String description like "0.01 to 1.0 with 100 points"
+
+
 # ========================================================================================
 # SHARED UTILITIES
 # ========================================================================================
@@ -62,7 +82,51 @@ def setup_llm():
 
 
 # ========================================================================================
-# AGENT 1: RAG MODEL SELECTOR
+# AGENT 1: COORDINATOR
+# ========================================================================================
+
+def create_coordinator_agent() -> Agent:
+    """Create a coordinator agent to route tasks based on user intent."""
+    llm = setup_llm()
+    return Agent(
+        role="Task Coordinator",
+        goal="Analyze user prompts and route to appropriate tasks (data generation or fitting)",
+        backstory="""You are an expert in interpreting user prompts for small-angle scattering (SAS) tasks.
+        You analyze natural language requests to determine whether the user wants to generate synthetic data
+        or fit existing data, then delegate to the appropriate specialist agent.""",
+        verbose=True,
+        allow_delegation=False,
+        llm=llm
+    )
+
+
+def create_coordinator_task(prompt: str) -> Task:
+    """Create a task to classify the user prompt and decide the workflow."""
+    return Task(
+        description=f"""
+        Analyze the following user prompt and determine whether it requests:
+        1. Synthetic data generation (keywords: generate, create, synthetic, simulate)
+        2. Data fitting (keywords: fit, analyze, model, curve fit)
+
+        Prompt: {prompt}
+
+        Steps:
+        1. Identify keywords and context (e.g., presence of file path for fitting).
+        2. Extract sample description and any parameters.
+        3. Output a structured decision in this EXACT format:
+
+        INTENT: [generation|fitting]
+        SAMPLE_DESCRIPTION: [extracted_description]
+        DATA_PATH: [file_path_or_none]
+        PARAMETERS: [extracted_parameters_or_none]
+        """,
+        expected_output="Structured decision in the specified format",
+        agent=create_coordinator_agent()
+    )
+
+
+# ========================================================================================
+# AGENT 2: RAG MODEL SELECTOR
 # ========================================================================================
 
 class RAGModelSelectorTool(BaseTool):
@@ -75,16 +139,17 @@ class RAGModelSelectorTool(BaseTool):
     USAGE: rag_model_selector(sample_description="detailed sample description")
 
     Parameters:
-    - sample_description: Detailed description of the sample (e.g., "spherical protein nanoparticles in buffer")
+    - sample_description: Detailed description of the sample (e.g., "spherical protein nanoparticles 50nm radius in buffer")
 
     Returns:
     - recommended_model: Best model name
     - confidence: Confidence score (0-1)
     - reasoning: Scientific reasoning for selection
-    - parameters: Key parameters to focus on
+    - parameters: Key parameters to focus on with suggested values
     - alternatives: List of alternative models
+    - q_suggestions: Suggested q-range for the sample type
 
-    Example: rag_model_selector(sample_description="spherical protein nanoparticles in aqueous buffer solution")
+    Example: rag_model_selector(sample_description="spherical gold nanoparticles 25nm radius in aqueous buffer solution")
     """
     args_schema: type[BaseModel] = RAGModelSelectorInput
 
@@ -242,7 +307,7 @@ def create_model_selection_task(sample_description: str) -> Task:
 
 
 # ========================================================================================
-# AGENT 2: SASVIEW FITTER
+# AGENT 3: SASVIEW FITTER
 # ========================================================================================
 
 class SasViewFittingTool(BaseTool):
@@ -371,177 +436,511 @@ def create_fitting_task(data_path: str, model_recommendation: str, model_context
 
 
 # ========================================================================================
+# AGENT 4: SYNTHETIC DATA GENERATOR
+# ========================================================================================
+
+class SyntheticDataTool(BaseTool):
+    """Tool for generating synthetic SAS data with flexible q-range and parameter control"""
+    name: str = "synthetic_data_tool"
+    description: str = """
+    Generates synthetic I(q) data using SasView models with user-specified parameters and q-range.
+
+    USAGE: synthetic_data_tool(sample_description="description", model_name="exact_model_name", params=optional_dict, q_values=optional_list, q_range="optional_string")
+
+    Parameters:
+    - sample_description (required): Description of the sample
+    - model_name (optional): Exact SasView model name (e.g., "sphere")
+    - params (optional): Dictionary of model parameters (e.g., {"radius": 50.0, "sld": 2.0})
+    - q_values (optional): List for q-range as [q_min, q_max, num_points] (e.g., [0.01, 1.0, 100])
+    - q_range (optional): String description of q-range (e.g., "0.01 to 1.0 with 150 points")
+
+    Returns:
+    - success: True/False
+    - csv_path: Path to generated CSV file
+    - ground_truth_params: Parameters used for generation
+    - model_used: Model name used
+    - q_info: Information about q-range used
+    - plot_file: Path to visualization plot
+
+    Examples:
+    - Basic: synthetic_data_tool(sample_description="spherical particles")
+    - With params: synthetic_data_tool(sample_description="gold spheres", params={"radius": 25.0})
+    - With q-range: synthetic_data_tool(sample_description="spheres", q_values=[0.005, 2.0, 200])
+    """
+    args_schema: type[BaseModel] = SyntheticDataInput
+
+    def _run(self, sample_description: str, model_name: str = None, params: dict = None,
+             q_values: list = None, q_range: str = None) -> Dict[str, Any]:
+        """Execute synthetic data generation with enhanced parameter and q-range control"""
+        try:
+            if SAS_TOOLS_AVAILABLE:
+                # Use RAG to select model if not provided
+                if not model_name:
+                    try:
+                        rag_tool = RAGModelSelectorTool()
+                        rag_result = rag_tool._run(sample_description)
+                        if rag_result.get('success'):
+                            model_name = rag_result['recommended_model']
+                            # Extract parameter values from RAG result if not provided
+                            if not params and 'parameters' in rag_result:
+                                params = self._extract_parameters_from_rag(rag_result['parameters'])
+                        else:
+                            model_name = "sphere"  # fallback
+                    except Exception:
+                        model_name = "sphere"  # fallback
+
+                # Process q-range specifications
+                q_info = self._process_q_range(q_values, q_range, sample_description)
+
+                # Extract any parameter hints from sample description
+                if not params:
+                    params = self._extract_parameters_from_description(sample_description, model_name)
+
+                # Extract background hints from description and add to params
+                if params is None:
+                    params = {}
+                if 'background' not in params:
+                    background = self._extract_background_from_description(sample_description)
+                    if background is not None:
+                        params['background'] = background
+
+                # Generate synthetic data with enhanced parameters
+                output_folder = "data/test_ai_generation"
+
+                # Prepare generation arguments
+                gen_args = {
+                    "model_name": model_name,
+                    "params": params,
+                    "output_folder": output_folder,
+                    "noise_level": 0.03,  # 3% noise
+                    "plot": True,
+                    "include_uncertainty": True
+                }
+
+                # Add q-range if specified
+                if q_info.get('q_array') is not None:
+                    gen_args["q_values"] = q_info['q_array']
+
+                csv_path, ground_truth = generate_sasview_data(**gen_args)
+
+                return {
+                    "success": True,
+                    "csv_path": csv_path,
+                    "ground_truth_params": ground_truth,
+                    "model_used": model_name,
+                    "q_info": q_info,
+                    "background_used": ground_truth.get('background'),
+                    "plot_file": str(csv_path.replace('.csv', '_plot.png'))
+                }
+            else:
+                return {"success": False, "error": "SAS generation tools not available"}
+        except Exception as e:
+            return {"success": False, "error": f"Synthetic data generation failed: {str(e)}"}
+
+    def _extract_parameters_from_rag(self, rag_parameters: dict) -> dict:
+        """Extract and convert RAG parameter recommendations to usable format"""
+        params = {}
+        for param_name, param_info in rag_parameters.items():
+            if 'default' in param_info:
+                try:
+                    default_val = param_info['default']
+                    if isinstance(default_val, str):
+                        try:
+                            params[param_name] = float(default_val)
+                        except ValueError:
+                            params[param_name] = default_val
+                    else:
+                        params[param_name] = default_val
+                except (ValueError, KeyError):
+                    continue
+        return params
+
+    def _process_q_range(self, q_values: list, q_range: str, description: str) -> dict:
+        """Process q-range specifications and extract from description if needed"""
+        import numpy as np
+        import re
+
+        q_info = {"source": "default", "q_array": None}
+
+        # Process explicit q_values list [q_min, q_max, num_points]
+        if q_values and len(q_values) >= 3:
+            try:
+                q_min, q_max, num_points = q_values[0], q_values[1], int(q_values[2])
+                q_array = np.logspace(np.log10(q_min), np.log10(q_max), num_points)
+                q_info = {
+                    "source": "explicit_list",
+                    "q_min": q_min,
+                    "q_max": q_max,
+                    "num_points": num_points,
+                    "q_array": q_array.tolist()
+                }
+                return q_info
+            except (ValueError, TypeError):
+                pass
+
+        # Process q_range string descriptions
+        if q_range:
+            try:
+                # Parse patterns like "0.01 to 1.0 with 100 points"
+                match = re.search(r'(\d+\.?\d*)\s*to\s*(\d+\.?\d*)\s*with\s*(\d+)', q_range.lower())
+                if match:
+                    q_min, q_max, num_points = float(match.group(1)), float(match.group(2)), int(match.group(3))
+                    q_array = np.logspace(np.log10(q_min), np.log10(q_max), num_points)
+                    q_info = {
+                        "source": "string_description",
+                        "q_min": q_min,
+                        "q_max": q_max,
+                        "num_points": num_points,
+                        "q_array": q_array.tolist(),
+                        "original_string": q_range
+                    }
+                    return q_info
+            except (ValueError, TypeError):
+                pass
+
+        # Extract q-range hints from sample description
+        q_hints = self._extract_q_hints_from_description(description)
+        if q_hints:
+            q_info.update(q_hints)
+            return q_info
+
+        # Default: return None to use default q-range in generation function
+        return q_info
+
+    def _extract_q_hints_from_description(self, description: str) -> dict:
+        """Extract q-range hints from natural language description"""
+        import re
+        import numpy as np
+
+        desc_lower = description.lower()
+
+        # Look for explicit q-range mentions
+        q_patterns = [
+            r'q.*?(\d+\.?\d*)\s*to\s*(\d+\.?\d*)',
+            r'q.*?range.*?(\d+\.?\d*)\s*[-–]\s*(\d+\.?\d*)',
+            r'(\d+\.?\d*)\s*[-–]\s*(\d+\.?\d*)\s*Å[-¹]?',
+        ]
+
+        for pattern in q_patterns:
+            match = re.search(pattern, desc_lower)
+            if match:
+                try:
+                    q_min, q_max = float(match.group(1)), float(match.group(2))
+                    # Use 100 points as default
+                    q_array = np.logspace(np.log10(q_min), np.log10(q_max), 100)
+                    return {
+                        "source": "description_extraction",
+                        "q_min": q_min,
+                        "q_max": q_max,
+                        "num_points": 100,
+                        "q_array": q_array.tolist()
+                    }
+                except (ValueError, TypeError):
+                    continue
+
+        # Look for instrument or resolution hints
+        if any(word in desc_lower for word in ['sans', 'small angle', 'low q']):
+            # SANS typically covers 0.01 - 1.0 Å⁻¹
+            q_array = np.logspace(-2, 0, 100)  # 0.01 to 1.0
+            return {
+                "source": "instrument_hint_sans",
+                "q_min": 0.01,
+                "q_max": 1.0,
+                "num_points": 100,
+                "q_array": q_array.tolist()
+            }
+        elif any(word in desc_lower for word in ['saxs', 'high q', 'wide angle']):
+            # SAXS can go to higher q
+            q_array = np.logspace(-2, 0.5, 100)  # 0.01 to ~3.0
+            return {
+                "source": "instrument_hint_saxs",
+                "q_min": 0.01,
+                "q_max": 3.0,
+                "num_points": 100,
+                "q_array": q_array.tolist()
+            }
+
+        return {}
+
+    def _extract_parameters_from_description(self, description: str, model_name: str) -> dict:
+        """Extract parameter hints from natural language description"""
+        import re
+
+        params = {}
+        desc_lower = description.lower()
+
+        # Common parameter patterns
+        size_patterns = [
+            (r'radius.*?(\d+\.?\d*)\s*(?:nm|Å|angstrom)', 'radius'),
+            (r'diameter.*?(\d+\.?\d*)\s*(?:nm|Å|angstrom)', 'radius'),  # Convert diameter to radius
+            (r'length.*?(\d+\.?\d*)\s*(?:nm|Å|angstrom)', 'length'),
+            (r'thickness.*?(\d+\.?\d*)\s*(?:nm|Å|angstrom)', 'thickness'),
+            (r'(\d+\.?\d*)\s*(?:nm|Å|angstrom).*?radius', 'radius'),
+            (r'(\d+\.?\d*)\s*(?:nm|Å|angstrom).*?diameter', 'radius'),
+            (r'(\d+\.?\d*)\s*(?:nm|Å|angstrom).*?thick', 'thickness'),
+        ]
+
+        for pattern, param_name in size_patterns:
+            match = re.search(pattern, desc_lower)
+            if match:
+                try:
+                    value = float(match.group(1))
+                    # Convert diameter to radius if needed
+                    if 'diameter' in pattern and param_name == 'radius':
+                        value = value / 2.0
+                    params[param_name] = value
+                except (ValueError, TypeError):
+                    continue
+
+        # SLD patterns (scattering length density)
+        sld_patterns = [
+            (r'sld.*?(\d+\.?\d*)', 'sld'),
+            (r'scattering.*?length.*?density.*?(\d+\.?\d*)', 'sld'),
+            (r'contrast.*?(\d+\.?\d*)', 'sld'),
+        ]
+
+        for pattern, param_name in sld_patterns:
+            match = re.search(pattern, desc_lower)
+            if match:
+                try:
+                    params[param_name] = float(match.group(1))
+                except (ValueError, TypeError):
+                    continue
+
+        # Volume fraction for interaction models
+        if any(word in desc_lower for word in ['volume fraction', 'concentration', 'vol frac']):
+            vf_match = re.search(r'(?:volume fraction|concentration|vol frac).*?(\d+\.?\d*)', desc_lower)
+            if vf_match:
+                try:
+                    vf = float(vf_match.group(1))
+                    # Convert percentage to fraction if needed
+                    if vf > 1.0:
+                        vf = vf / 100.0
+                    if 'volfraction' in model_name.lower():
+                        params['volfraction'] = vf
+                except (ValueError, TypeError):
+                    pass
+
+        return params
+
+    def _extract_background_from_description(self, description: str) -> float:
+        """Extract background level hints from natural language description"""
+        import re
+
+        desc_lower = description.lower()
+
+        # Look for explicit background mentions
+        bg_patterns = [
+            (r'background.*?(\d+\.?\d*)', 'background'),
+            (r'incoherent.*?(\d+\.?\d*)', 'background'),
+            (r'baseline.*?(\d+\.?\d*)', 'background'),
+        ]
+
+        for pattern, _ in bg_patterns:
+            match = re.search(pattern, desc_lower)
+            if match:
+                try:
+                    return float(match.group(1))
+                except (ValueError, TypeError):
+                    continue
+
+        # Instrument-specific background levels
+        if any(word in desc_lower for word in ['sans', 'neutron']):
+            return 0.0005  # Lower background for SANS
+        elif any(word in desc_lower for word in ['saxs', 'x-ray', 'synchrotron']):
+            return 0.01   # Higher background for SAXS
+        elif any(word in desc_lower for word in ['solution', 'aqueous', 'buffer']):
+            return 0.001  # Medium background for solution samples
+
+        # Return None to use default
+        return None
+
+
+def create_data_generation_agent() -> Agent:
+    """Create an agent for generating synthetic SAS data"""
+    llm = setup_llm()
+    return Agent(
+        role="SAS Data Generation Specialist",
+        goal="Generate synthetic I(q) data based on sample descriptions and parameters",
+        backstory="""You are an expert in generating synthetic small-angle scattering (SAS) data
+        using SasModels. You interpret sample descriptions, select appropriate models using RAG,
+        and generate realistic I(q) data with appropriate noise and uncertainties.""",
+        verbose=True,
+        allow_delegation=False,
+        tools=[RAGModelSelectorTool(), SyntheticDataTool()],  # Use generation tool and RAG
+        llm=llm
+    )
+
+
+def create_data_generation_task(sample_description: str, params: dict = None, q_values: list = None) -> Task:
+    """Create a task for generating synthetic SAS data with enhanced parameter and q-range control"""
+    return Task(
+        description=f"""
+        Generate synthetic SAS I(q) data based on the sample description with enhanced parameter and q-range control.
+
+        Sample Description: {sample_description}
+        Parameters: {params or 'Extract from description or use RAG recommendations'}
+        Q-range: {q_values or 'Extract from description or use defaults'}
+
+        Steps:
+        1. Use the RAG model selector to choose an appropriate model and extract parameter suggestions.
+        2. Extract any parameter values mentioned in the sample description (e.g., "25nm radius").
+        3. Extract any q-range specifications from the description (e.g., "q range 0.01 to 1.0").
+        4. Use the enhanced synthetic data generator tool to create I(q) data with:
+           - Extracted or suggested model parameters
+           - Custom q-range if specified
+           - Appropriate noise (3%) and uncertainties
+        5. Save data as CSV and generate a plot with parameter and q-range information.
+
+        Pay special attention to:
+        - Size parameters (radius, diameter, length, thickness) with units
+        - Scattering contrast (SLD values)
+        - Concentration or volume fraction for interaction models
+        - Q-range requirements for specific measurements or instruments
+        """,
+        expected_output="Report with csv_path, ground_truth_params, model_used, q_info, and plot_file",
+        agent=create_data_generation_agent()
+    )
+
+
+# ========================================================================================
 # UNIFIED ANALYSIS SYSTEM
 # ========================================================================================
 
 class UnifiedSASAnalysisSystem:
-    """Two-agent SAS analysis system: RAG model selector + SasView fitter"""
-
+    """Multi-agent SAS analysis system with coordinator for task routing"""
     def __init__(self):
         self.model_selector = create_model_selector_agent()
         self.fitter = create_fitting_agent()
+        self.data_generator = create_data_generation_agent()
+        self.coordinator = create_coordinator_agent()
         self.rag_available = RAG_AVAILABLE
+        self.sas_tools_available = SAS_TOOLS_AVAILABLE
 
-    def analyze_data(self, data_path: str, sample_description: str) -> Dict[str, Any]:
+    def analyze_data(self, prompt: str, data_path: str = None) -> Dict[str, Any]:
         """
-        Complete SAS analysis using collaborative two-agent system
+        Route and execute SAS tasks (fitting or generation) based on prompt.
 
         Args:
-            data_path: Path to CSV file with q,I data
-            sample_description: Detailed description of the sample
+            prompt: User prompt (e.g., "Generate data for spheres" or "Fit data.csv to sphere model")
+            data_path: Optional path to data file (for fitting tasks)
 
         Returns:
-            Complete analysis results from both agents working together
+            Results from either generation or fitting workflow
         """
         try:
-            print("�🔧 Starting collaborative two-agent SAS analysis...")
+            print("🔧 Starting collaborative SAS analysis...")
 
-            # Create collaborative tasks for both agents
-            selection_task = self._create_collaborative_selection_task(sample_description)
-            fitting_task = self._create_collaborative_fitting_task(data_path, sample_description)
-
-            # Single crew with both agents collaborating
-            analysis_crew = Crew(
-                agents=[self.model_selector, self.fitter],
-                tasks=[selection_task, fitting_task],
+            # Step 1: Use coordinator to determine intent
+            coordinator_task = create_coordinator_task(prompt)
+            coordinator_crew = Crew(
+                agents=[self.coordinator],
+                tasks=[coordinator_task],
                 process=Process.sequential,
                 verbose=True
             )
+            coordinator_result = coordinator_crew.kickoff()
 
-            # Execute collaborative analysis
-            results = analysis_crew.kickoff()
+            # Parse coordinator output
+            intent_match = re.search(
+                r"INTENT:\s*(generation|fitting)\s*\nSAMPLE_DESCRIPTION:\s*(.*?)\s*\nDATA_PATH:\s*(.*?)\s*\nPARAMETERS:\s*(.*?)(?:\n|$)",
+                str(coordinator_result), re.DOTALL
+            )
+            if not intent_match:
+                return {"success": False, "error": "Could not determine task intent from prompt"}
 
-            return {
-                "success": True,
-                "collaborative_analysis": str(results),
-                "data_file": data_path,
-                "sample_description": sample_description,
-                "rag_enhanced": self.rag_available,
-                "workflow": "Two agents collaborated in single crew for optimal results"
-            }
+            intent, sample_description, data_path_str, params_str = intent_match.groups()
+            data_path = data_path_str.strip() if data_path_str.strip() != "none" else data_path
+            params = json.loads(params_str.strip()) if params_str.strip() != "none" else None
+
+            print(f"📋 Intent: {intent}, Sample: {sample_description}, Data: {data_path}, Params: {params}")
+
+            # Step 2: Route to appropriate workflow
+            if intent == "generation":
+                generation_task = create_data_generation_task(sample_description, params)
+                generation_crew = Crew(
+                    agents=[self.data_generator],
+                    tasks=[generation_task],
+                    process=Process.sequential,
+                    verbose=True
+                )
+                results = generation_crew.kickoff()
+                return {
+                    "success": True,
+                    "task_type": "generation",
+                    "results": str(results),
+                    "sample_description": sample_description,
+                    "rag_enhanced": self.rag_available
+                }
+
+            elif intent == "fitting":
+                if not data_path or not os.path.exists(data_path):
+                    return {"success": False, "error": f"Data file not found: {data_path}"}
+
+                # Create collaborative tasks for model selection and fitting
+                selection_task = create_model_selection_task(sample_description)
+                fitting_task = create_fitting_task(data_path, "from_selector", sample_description)
+
+                analysis_crew = Crew(
+                    agents=[self.model_selector, self.fitter],
+                    tasks=[selection_task, fitting_task],
+                    process=Process.sequential,
+                    verbose=True
+                )
+                results = analysis_crew.kickoff()
+                return {
+                    "success": True,
+                    "task_type": "fitting",
+                    "results": str(results),
+                    "data_file": data_path,
+                    "sample_description": sample_description,
+                    "rag_enhanced": self.rag_available
+                }
+
+            else:
+                return {"success": False, "error": f"Unknown intent: {intent}"}
 
         except Exception as e:
             return {
                 "success": False,
-                "error": f"Collaborative analysis failed: {str(e)}",
-                "data_file": data_path,
-                "sample_description": sample_description,
+                "error": f"Analysis failed: {str(e)}",
+                "prompt": prompt,
+                "data_path": data_path,
                 "rag_enhanced": self.rag_available
             }
-
-    def _create_collaborative_selection_task(self, sample_description: str) -> Task:
-        """Create collaborative model selection task"""
-        return Task(
-            description=f"""
-            Analyze the sample description and recommend the best SasView model for fitting.
-            Your recommendation will be used by the fitting specialist agent.
-
-            Sample Description: {sample_description}
-
-            Use the rag_model_selector tool to:
-            1. Analyze the sample characteristics (geometry, structure, material type)
-            2. Get model recommendation with confidence score
-            3. Understand the scientific reasoning behind the selection
-            4. Identify key parameters that will be important for fitting
-            5. Consider alternative models if confidence is low
-
-            CRITICAL: Provide your recommendation in this EXACT format for the fitting agent:
-
-            PRIMARY_MODEL: [exact_model_name]
-            CONFIDENCE: [0.0-1.0]
-            REASONING: [scientific_basis_for_selection]
-            KEY_PARAMETERS: [important_parameters_and_ranges]
-            ALTERNATIVES: [backup_model1, backup_model2]
-            FITTING_GUIDANCE: [specific_advice_for_fitter]
-
-            The fitting agent will extract the PRIMARY_MODEL name directly from your response.
-            Make sure the model name is exactly as it appears in SasView (e.g., "sphere", "cylinder", "surface_fractal").
-            """,
-            expected_output="""
-            Model selection recommendation in the exact format:
-            PRIMARY_MODEL: [model_name]
-            CONFIDENCE: [0.0-1.0]
-            REASONING: Scientific basis for selection
-            KEY_PARAMETERS: Important parameters and expected ranges
-            ALTERNATIVES: Backup models if primary fails
-            FITTING_GUIDANCE: Specific advice for the fitting agent
-            """,
-            agent=self.model_selector
-        )
-
-    def _create_collaborative_fitting_task(self, data_path: str, sample_description: str) -> Task:
-        """Create collaborative fitting task that works with selection results"""
-        return Task(
-            description=f"""
-            Perform SasView model fitting based on the model selection agent's recommendation.
-
-            Data file: {data_path}
-            Sample: {sample_description}
-
-            IMPORTANT: Extract the model information from the previous agent's output:
-            - Look for "PRIMARY_MODEL:" to get the model name
-            - Look for "CONFIDENCE:" to understand reliability
-            - Look for "REASONING:" to understand the selection basis
-            - Look for "KEY_PARAMETERS:" for fitting guidance
-
-            Process:
-            1. Parse the model selector's recommendation to extract the PRIMARY_MODEL name
-            2. Use sasview_fitting_tool with: csv_path="{data_path}", model_name=[extracted_model], parameter_guidance="from_model_selector"
-            3. If primary model fails (error or R² < 0.8), extract and try ALTERNATIVES
-            4. Evaluate fit quality and parameter reasonableness
-            5. Provide comprehensive analysis
-
-            Example tool usage:
-            sasview_fitting_tool(csv_path="{data_path}", model_name="sphere", parameter_guidance="Focus on radius parameter as suggested by model selector")
-
-            Use the sasview_fitting_tool to execute the fitting and provide:
-            - Comprehensive fit quality assessment
-            - Parameter interpretation with physical meaning
-            - Recommendations for improvement if needed
-            - Assessment of whether the model selection was appropriate
-            """,
-            expected_output="""
-            Comprehensive fitting analysis report:
-            1. FITTING_RESULTS: Model used, R², RMSE, χ² statistics
-            2. PARAMETERS: Fitted values with physical interpretation
-            3. QUALITY_ASSESSMENT: Fit quality and reliability analysis
-            4. MODEL_VALIDATION: Whether selected model was appropriate
-            5. RECOMMENDATIONS: Suggestions for improvement or alternative approaches
-            """,
-            agent=self.fitter,
-            context=[self._create_collaborative_selection_task(sample_description)]
-        )
 
 
 # ========================================================================================
 # CONVENIENCE FUNCTIONS
 # ========================================================================================
 
-def analyze_sas_data(data_path: str, sample_description: str, verbose: bool = True) -> Dict[str, Any]:
+def analyze_sas_data(prompt: str, data_path: str = None, verbose: bool = True) -> Dict[str, Any]:
     """
-    Convenience function for analyzing SAS data with the collaborative system
+    Analyze SAS data or generate synthetic data based on user prompt.
 
     Args:
-        data_path: Path to CSV file with q,I columns
-        sample_description: Detailed description of your sample
+        prompt: User prompt specifying task (e.g., "Generate data for spheres" or "Fit my_data.csv to sphere model")
+        data_path: Optional path to CSV file (for fitting tasks)
         verbose: Whether to print progress information
 
     Returns:
-        Analysis results from the two-agent collaborative system
+        Results from the appropriate workflow
 
     Example:
-        result = analyze_sas_data(
-            "my_data.csv",
-            "Spherical gold nanoparticles in water with polymer coating"
-        )
+        # For generation:
+        result = analyze_sas_data("Generate synthetic data for spherical gold nanoparticles")
+
+        # For fitting:
+        result = analyze_sas_data("Fit my_data.csv to spherical particles", "my_data.csv")
     """
     if verbose:
-        print(f"🔬 Analyzing: {data_path}")
-        print(f"📝 Sample: {sample_description}")
-        print("🤖 Starting collaborative two-agent analysis...")
+        print(f"� Processing prompt: {prompt}")
+        if data_path:
+            print(f"� Data file: {data_path}")
+        print("🤖 Starting collaborative SAS analysis...")
 
     system = UnifiedSASAnalysisSystem()
-    return system.analyze_data(data_path, sample_description)
+    return system.analyze_data(prompt, data_path)
 
 
 # ========================================================================================
@@ -554,12 +953,18 @@ def main():
     os.environ['OTEL_SDK_DISABLED'] = 'true'
 
     print("UNIFIED COLLABORATIVE SAS ANALYSIS SYSTEM")
-    print("Two-Agent Framework: RAG Model Selector + SasView Fitter (Single Crew)")
-    print("=" * 70)
+    print("Multi-Agent Framework: Coordinator + RAG Model Selector + SasView Fitter + Synthetic Data Generator")
+    print("=" * 80)
 
-    # Check for API key
-    api_key = os.getenv('OPENROUTER_API_KEY')
-    if not api_key:
+    # Check system status
+    system = UnifiedSASAnalysisSystem()
+    print("System Status:")
+    print(f"  🔑 OpenRouter API: {'✅ Configured' if os.getenv('OPENROUTER_API_KEY') else '❌ Missing'}")
+    print(f"  🧠 RAG Enhancement: {'✅ Enabled' if system.rag_available else '❌ Disabled'}")
+    print(f"  🔧 SAS Tools: {'✅ Available' if system.sas_tools_available else '❌ Missing'}")
+    print()
+
+    if not os.getenv('OPENROUTER_API_KEY'):
         print("🔑 API Key Setup Required")
         print("Set your OpenRouter API key:")
         print("  export OPENROUTER_API_KEY='your-openrouter-key'")
@@ -567,83 +972,25 @@ def main():
         print("  1. Sign up at https://openrouter.ai")
         print("  2. Get your API key")
         print("  3. Set OPENROUTER_API_KEY environment variable")
-        print("\n💡 You can still test RAG model selection without API key!")
+        print()
 
-        # Demo RAG model selector without API key
-        print("\n🧠 Testing RAG Model Selector (No API key required)")
-        print("=" * 50)
-        try:
-            rag_tool = RAGModelSelectorTool()
-            test_descriptions = [
-                "Spherical protein nanoparticles in aqueous buffer",
-                "DNA polymer chains - flexible structures",
-                "Phospholipid bilayer membranes"
-            ]
-
-            for i, desc in enumerate(test_descriptions, 1):
-                print(f"\n{i}. Sample: {desc}")
-                result = rag_tool._run(desc)
-                if result.get('success'):
-                    print(f"   🧠 RAG Recommendation: {result['recommended_model']}")
-                    print(f"   📊 Confidence: {result['confidence']:.3f}")
-                else:
-                    print(f"   ❌ Failed: {result.get('error', 'Unknown error')}")
-
-            print("\n✅ RAG system working! Set API key for full collaborative workflow.")
-        except Exception as e:
-            print(f"❌ RAG test failed: {e}")
-        print("\n🔄 Demo completed. Exiting cleanly...")
-        return
-
-    # Run the full collaborative system
-    print("🚀 Starting Collaborative SAS Analysis Demo")
-    print("=" * 50)
-
-    system = UnifiedSASAnalysisSystem()
-    print(f"RAG Enhancement: {'✅ Enabled' if system.rag_available else '❌ Disabled'}")
-    print("System Components:")
-    print("  🧠 Model Selector Agent: Intelligent RAG-powered model recommendation")
-    print("  🔧 Fitting Agent: SasView/Bumps collaborative fitting")
-    print("  🤝 Single Crew: Both agents work together for optimal results")
+    print("📋 Usage Examples:")
+    print("=" * 40)
+    print("# Python API usage:")
+    print("from crewai_sas_agents import UnifiedSASAnalysisSystem")
+    print("system = UnifiedSASAnalysisSystem()")
     print()
-
-    # Demo with synthetic flexible cylinder data
-    demo_case = {
-        "data_file": "data/synthetic_flexible_cylinder.csv",
-        "description": "DNA polymer chains in physiological buffer - flexible, worm-like structures"
-    }
-
-    if not os.path.exists(demo_case['data_file']):
-        print(f"❌ Demo data file not found: {demo_case['data_file']}")
-        print("Generate test data first with: python3 synthetic_data.py")
-        print("\n🔄 Demo completed. Exiting cleanly...")
-        return
-
-    print(f"🧬 Demo Analysis: {demo_case['data_file']}")
-    print(f"Sample: {demo_case['description']}")
-    print("=" * 60)
-
-    try:
-        result = system.analyze_data(demo_case['data_file'], demo_case['description'])
-
-        if result['success']:
-            print("✅ Collaborative analysis completed successfully!")
-            print(f"🤝 Workflow: {result['workflow']}")
-            print("\n🎯 TO USE WITH YOUR DATA:")
-            print("system = UnifiedSASAnalysisSystem()")
-            print("result = system.analyze_data('your_data.csv', 'your sample description')")
-            print("\n📈 DEMO SUMMARY:")
-            print("- RAG system selected 'flexible_cylinder' model perfectly")
-            print("- Bumps fitting achieved R²=1.0000 (perfect fit)")
-            print("- Agent collaboration worked flawlessly")
-        else:
-            print(f"❌ Analysis failed: {result['error']}")
-
-    except Exception as e:
-        print(f"❌ Demo failed: {e}")
-
-    print("\n🔄 Demo completed. Exiting cleanly...")
-    print("🎉 System ready for production use!")
+    print("# Generate synthetic data:")
+    print("result = system.analyze_data('Generate data for spherical gold nanoparticles')")
+    print()
+    print("# Fit existing data:")
+    print("result = system.analyze_data('Fit my_data.csv to spherical particles', 'path/to/my_data.csv')")
+    print()
+    print("📊 For Testing:")
+    print("  python test_generation.py  # Test generation functionality")
+    print("  python test_fitting.py     # Test fitting functionality")
+    print()
+    print("🎯 System ready for production use!")
 
 
 if __name__ == "__main__":

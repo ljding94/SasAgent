@@ -488,7 +488,7 @@ if CREWAI_AVAILABLE:
 
                 # Import and use the sasview_fit function
                 sys.path.append('/Users/ldq/Work/SasAgent')
-                from sasview_tool import sasview_fit
+                from SAS.fitting import sasview_fit
 
                 fitting_result = sasview_fit(csv_path, model_to_use, plot_label="RAG_Enhanced_Agent")
 

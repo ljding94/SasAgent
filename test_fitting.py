@@ -1,0 +1,432 @@
+#!/usr/bin/env python3
+"""
+Test script for SAS data fitting functionality
+Tests both direct fitting functions and RAG-enhanced model selection for fitting
+"""
+
+import os
+import sys
+import numpy as np
+from pathlib import Path
+
+# Add project root to path
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
+
+
+def generate_test_data():
+    """Generate some test data for fitting"""
+    print("🔧 Generating Test Data for Fitting")
+    print("=" * 50)
+
+    from SAS.generation import generate_sasview_data
+
+    # Generate test datasets with known parameters
+    test_datasets = {
+        "sphere_test": {
+            "model": "sphere",
+            "params": {"radius": 50.0, "background": 0.01},
+            "q_values": np.linspace(0.001, 0.3 , 200).tolist()  # 0.001 to 1.0, 100 points
+        },
+        "cylinder_test": {
+            "model": "cylinder",
+            "params": {"radius": 20.0, "length": 400.0,  "background": 0.01},
+            "q_values": np.linspace(0.01, 0.5, 200).tolist()  # 0.01 to ~3.16, 120 points (SAXS-like)
+        },
+        "flexible_cylinder_test": {
+            "model": "flexible_cylinder",
+            "params": {"length": 1000.0, "kuhn_length": 100.0, "radius": 20.0, "background": 0.01},
+            "q_values": np.linspace(0.01, 0.6, 200).tolist()  # 0.003 to ~0.5, 80 points (SANS-like)
+        },
+        "lamellar_test": {
+            "model": "lamellar",
+            "params": {"thickness": 40.0, "background": 0.01},
+            "q_values": np.linspace(0.01, 1.0, 200).tolist()  # 0.0016 to ~0.32, 90 points (low-q SANS)
+        }
+    }
+
+    generated_files = {}
+
+    for dataset_name, config in test_datasets.items():
+        print(f"\n📋 Generating {dataset_name}...")
+        try:
+            csv_path, ground_truth = generate_sasview_data(
+                model_name=config["model"],
+                params=config["params"],
+                q_values=config.get("q_values"),  # Pass custom q_values if provided
+                output_folder="data/test_fitting",
+                noise_level=0.03,  # 3% noise for realistic fitting challenge
+                plot=True,
+                include_uncertainty=True
+            )
+
+            generated_files[dataset_name] = {
+                "csv_path": csv_path,
+                "model": config["model"],
+                "ground_truth": ground_truth
+            }
+            print(f"✅ Generated: {csv_path}")
+            print(f"   Ground truth: {ground_truth}")
+
+        except Exception as e:
+            print(f"❌ Failed to generate {dataset_name}: {e}")
+            generated_files[dataset_name] = {"error": str(e)}
+
+    return generated_files
+
+
+def test_basic_fitting():
+    """Test basic SasView fitting functionality"""
+    print("\n🔧 Testing Basic Fitting Functionality")
+    print("=" * 50)
+
+    try:
+        from SAS.fitting import sasview_fit
+
+        # First, generate test data
+        test_files = generate_test_data()
+
+        fitting_results = {}
+
+        for dataset_name, file_info in test_files.items():
+            if "error" in file_info:
+                continue
+
+            csv_path = file_info["csv_path"]
+            expected_model = file_info["model"]
+            ground_truth = file_info["ground_truth"]
+
+            print(f"\n📋 Fitting {dataset_name} with {expected_model} model...")
+
+            try:
+                # Test fitting with the correct model
+                result = sasview_fit(
+                    csv_path,
+                    expected_model,
+                    plot_label=f"Test_{dataset_name}"
+                )
+
+                if "error" not in result:
+                    fit_data = result['fit_json']
+                    r_squared = fit_data['r_squared']
+                    rmse = fit_data['rmse']
+                    fitted_params = fit_data['parameters']
+
+                    print("✅ Fitting successful!")
+                    print(f"   R² = {r_squared:.4f}")
+                    print(f"   RMSE = {rmse:.2e}")
+                    print(f"   Parameters fitted: {list(fitted_params.keys())}")
+
+                    # Evaluate fit quality
+                    fit_quality = "Excellent" if r_squared > 0.95 else "Good" if r_squared > 0.85 else "Poor"
+                    print(f"Fit quality: {fit_quality}")
+
+                    # Compare key physical parameters (ignore scale and highly correlated params)
+                    key_params = {
+                        "sphere": ["radius"],
+                        "cylinder": ["radius", "length"],
+                        "flexible_cylinder": ["length", "kuhn_length", "radius"],
+                        "lamellar": ["thickness"]
+                    }
+
+                    model_key_params = key_params.get(expected_model, [])
+                    param_recovery_good = True
+
+                    print("   Key parameter comparison:")
+                    for param in model_key_params:
+                        if param in ground_truth and param in fitted_params:
+                            true_val = ground_truth[param]
+                            fitted_val = fitted_params[param]
+
+                            if abs(true_val) < 1e-10:  # effectively zero
+                                diff_abs = abs(fitted_val - true_val)
+                                print(f"     {param}: true={true_val:.3f}, fitted={fitted_val:.3f} (diff={diff_abs:.3f})")
+                                param_ok = diff_abs < 0.1
+                            else:
+                                diff_pct = abs(fitted_val - true_val) / abs(true_val) * 100
+                                print(f"     {param}: true={true_val:.3f}, fitted={fitted_val:.3f} ({diff_pct:.1f}% diff)")
+                                param_ok = diff_pct < 50.0  # Allow 50% tolerance for complex fits
+
+                            if not param_ok:
+                                param_recovery_good = False
+
+                    # Overall assessment
+                    overall_success = r_squared > 0.8 and param_recovery_good
+                    status = "✅ PASS" if overall_success else "⚠️  MARGINAL" if r_squared > 0.5 else "❌ FAIL"
+                    print(f"   Overall assessment: {status}")
+
+                    fitting_results[dataset_name] = {
+                        "success": True,
+                        "r_squared": r_squared,
+                        "rmse": rmse,
+                        "fitted_parameters": fitted_params,
+                        "ground_truth": ground_truth,
+                        "fit_quality": fit_quality,
+                        "overall_success": overall_success
+                    }
+                else:
+                    print(f"❌ Fitting failed: {result['error']}")
+                    fitting_results[dataset_name] = {
+                        "success": False,
+                        "error": result['error']
+                    }
+
+            except Exception as e:
+                print(f"❌ Fitting exception: {e}")
+                fitting_results[dataset_name] = {
+                    "success": False,
+                    "error": str(e)
+                }
+
+        return fitting_results
+
+    except ImportError as e:
+        print(f"❌ SAS fitting tools not available: {e}")
+        return {"error": "Fitting tools not available"}
+
+
+def test_rag_enhanced_fitting():
+    """Test RAG-enhanced model selection for fitting"""
+    print("\n🧠 Testing RAG-Enhanced Fitting Workflow")
+    print("=" * 50)
+
+    try:
+        from crewai_sas_agents import RAGModelSelectorTool, SasViewFittingTool
+
+        # Use previously generated test data
+        test_data_dir = Path("data/test_fitting")
+        if not test_data_dir.exists():
+            print("❌ No test data found. Run generate_test_data() first.")
+            return {"error": "No test data available"}
+
+        csv_files = list(test_data_dir.glob("*.csv"))
+        if not csv_files:
+            print("❌ No CSV files found in test data directory.")
+            return {"error": "No CSV files found"}
+
+        rag_tool = RAGModelSelectorTool()
+        fitting_tool = SasViewFittingTool()
+
+        # Test sample descriptions that should match our test data
+        test_cases = [
+            {
+                "description": "spherical nanoparticles in solution, analyze with sphere model",
+                "expected_file_pattern": "sphere"
+            },
+            {
+                "description": "cylindrical rod-like particles, analyze with cylinder model",
+                "expected_file_pattern": "cylinder"
+            },
+            {
+                "description": "flexible polymer chains in solution, analyze with flexible_cylinder model",
+                "expected_file_pattern": "flexible_cylinder"
+            },
+            {
+                "description": "lamellar bilayer structures, analyze with lamellar model",
+                "expected_file_pattern": "lamellar"
+            }
+        ]
+
+        results = {}
+
+        for test_case in test_cases:
+            description = test_case["description"]
+            pattern = test_case["expected_file_pattern"]
+
+            print(f"\n📋 Sample: {description}")
+
+            # Find matching CSV file
+            matching_files = [f for f in csv_files if pattern in f.name]
+            if not matching_files:
+                print(f"   ❌ No matching data file found for pattern: {pattern}")
+                continue
+
+            csv_path = str(matching_files[0])
+            print(f"   📊 Using data file: {csv_path}")
+
+            # Get RAG model recommendation
+            rag_result = rag_tool._run(description)
+            if rag_result.get('success'):
+                recommended_model = rag_result['recommended_model']
+                confidence = rag_result['confidence']
+                print(f"   🧠 RAG Recommended: {recommended_model} (confidence: {confidence:.3f})")
+
+                # Test fitting with recommended model
+                fitting_result = fitting_tool._run(
+                    csv_path=csv_path,
+                    model_name=recommended_model,
+                    parameter_guidance="RAG-guided fitting test"
+                )
+
+                if fitting_result.get('success'):
+                    r_squared = fitting_result['r_squared']
+                    rmse = fitting_result['rmse']
+                    print("   ✅ Fitting successful!")
+                    print(f"      R² = {r_squared:.4f}")
+                    print(f"      RMSE = {rmse:.2e}")
+
+                    results[description] = {
+                        "success": True,
+                        "recommended_model": recommended_model,
+                        "confidence": confidence,
+                        "r_squared": r_squared,
+                        "rmse": rmse,
+                        "data_file": csv_path
+                    }
+                else:
+                    error = fitting_result.get('error', 'Unknown fitting error')
+                    print(f"   ❌ Fitting failed: {error}")
+                    results[description] = {
+                        "success": False,
+                        "recommended_model": recommended_model,
+                        "error": error
+                    }
+            else:
+                error = rag_result.get('error', 'Unknown RAG error')
+                print(f"   ❌ RAG failed: {error}")
+                results[description] = {
+                    "success": False,
+                    "error": error
+                }
+
+        return results
+
+    except ImportError as e:
+        print(f"❌ RAG/CrewAI tools not available: {e}")
+        return {"error": "RAG tools not available"}
+
+
+def test_model_selection_accuracy():
+    """Test how well RAG model selection matches expected models"""
+    print("\n🎯 Testing Model Selection Accuracy")
+    print("=" * 50)
+
+    try:
+        from crewai_sas_agents import RAGModelSelectorTool
+
+        rag_tool = RAGModelSelectorTool()
+
+        # Test cases with expected models
+        test_cases = [
+            ("spherical gold nanoparticles using sphere model", "sphere"),
+            ("cylindrical carbon nanotubes using cylinder model", "cylinder"),
+            ("flexible polymer chains using flexible_cylinder model", "flexible_cylinder"),
+            ("core-shell particles using core_shell_sphere model", "core_shell_sphere"),
+            ("charged spherical particles using hayter_msa model", "hayter_msa"),
+            ("lamellar bilayer structures using lamellar model", "lamellar")
+        ]
+
+        results = {}
+        correct_predictions = 0
+
+        for description, expected_model in test_cases:
+            print(f"\n📋 Description: {description}")
+            print(f"   Expected: {expected_model}")
+
+            rag_result = rag_tool._run(description)
+            if rag_result.get('success'):
+                recommended = rag_result['recommended_model']
+                confidence = rag_result['confidence']
+
+                # Check if it's correct or a reasonable alternative
+                is_correct = (recommended == expected_model)
+                if is_correct:
+                    correct_predictions += 1
+                    print(f"   ✅ Recommended: {recommended} (confidence: {confidence:.3f}) - CORRECT")
+                else:
+                    print(f"   ⚠️  Recommended: {recommended} (confidence: {confidence:.3f}) - DIFFERENT")
+
+                results[description] = {
+                    "success": True,
+                    "expected": expected_model,
+                    "recommended": recommended,
+                    "confidence": confidence,
+                    "correct": is_correct
+                }
+            else:
+                print(f"   ❌ Failed: {rag_result.get('error')}")
+                results[description] = {
+                    "success": False,
+                    "error": rag_result.get('error')
+                }
+
+        accuracy = correct_predictions / len(test_cases) * 100
+        print(f"\n📊 Overall Accuracy: {correct_predictions}/{len(test_cases)} ({accuracy:.1f}%)")
+
+        return {
+            "results": results,
+            "accuracy": accuracy,
+            "correct_predictions": correct_predictions,
+            "total_tests": len(test_cases)
+        }
+
+    except ImportError as e:
+        print(f"❌ RAG tools not available: {e}")
+        return {"error": "RAG tools not available"}
+
+
+def main():
+    """Main test runner"""
+    print("SAS DATA FITTING TEST SUITE")
+    print("=" * 60)
+
+    # Ensure output directories exist
+    os.makedirs("data/test_fitting", exist_ok=True)
+
+    # Run tests
+    results = {}
+
+    # Test 1: Basic fitting functionality
+    results['basic_fitting'] = test_basic_fitting()
+
+    # Test 2: RAG-enhanced fitting workflow
+    results['rag_fitting'] = test_rag_enhanced_fitting()
+
+    # Test 3: Model selection accuracy
+    results['model_selection'] = test_model_selection_accuracy()
+
+    # Summary
+    print("\n" + "=" * 60)
+    print("📊 TEST SUMMARY")
+    print("=" * 60)
+
+    # Basic fitting summary
+    basic_results = results['basic_fitting']
+    if isinstance(basic_results, dict) and 'error' not in basic_results:
+        successful = sum(1 for r in basic_results.values() if isinstance(r, dict) and r.get('overall_success'))
+        total = len(basic_results)
+        print(f"Basic Fitting: {successful}/{total} datasets fitted successfully")
+
+        # Show detailed results
+        for dataset, result in basic_results.items():
+            if isinstance(result, dict) and result.get('success'):
+                r_squared = result.get('r_squared', 0)
+                quality = result.get('fit_quality', 'Unknown')
+                overall = "✅ PASS" if result.get('overall_success') else "⚠️ MARGINAL"
+                print(f"  {overall} {dataset}: R² = {r_squared:.4f} ({quality})")
+            else:
+                print(f"  ❌ {dataset}: FAILED")
+    else:
+        print(f"Basic Fitting: Not available ({basic_results.get('error', 'Unknown error')})")
+    rag_results = results['rag_fitting']
+    if isinstance(rag_results, dict) and 'error' not in rag_results:
+        successful = sum(1 for r in rag_results.values() if isinstance(r, dict) and r.get('success'))
+        total = len(rag_results)
+        print(f"RAG-Enhanced Fitting: {successful}/{total} workflows successful")
+    elif isinstance(rag_results, dict) and 'error' in rag_results:
+        print(f"RAG-Enhanced Fitting: Not available ({rag_results['error']})")
+
+    # Model selection accuracy
+    selection_results = results['model_selection']
+    if isinstance(selection_results, dict) and 'accuracy' in selection_results:
+        accuracy = selection_results['accuracy']
+        print(f"Model Selection Accuracy: {accuracy:.1f}%")
+    elif isinstance(selection_results, dict) and 'error' in selection_results:
+        print(f"Model Selection: Not available ({selection_results['error']})")
+
+    print("\n🎯 Fitting testing complete!")
+    print("📁 Test files saved to: data/test_fitting/")
+
+
+if __name__ == "__main__":
+    main()
