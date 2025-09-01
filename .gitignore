@@ -13,5 +13,6 @@ data/*
 !README.md
 !.gitignore
 !requirement.txt
+!user_interface.png
 
 .DS_Store
