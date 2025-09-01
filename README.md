@@ -1,4 +1,4 @@
-# SasAgent - AI-Powered Small Angle Scattering Analysis System
+# SasAgent - AI-Powered Small-Angle Scattering Analysis System
 
 ![User Interface](user_interface.png)
 
@@ -23,6 +23,7 @@ SasAgent is an intelligent multi-agent system designed to automate and enhance S
 - Spherical particles (hard spheres, fuzzy spheres, core-shell)
 - Polymer systems (flexible cylinders, chains)
 - Colloids and nanoparticles
+- All 78 available SasView models
 - Custom model parameters and constraints
 
 ## 📋 Requirements
@@ -256,7 +257,7 @@ SasAgent leverages the power of AI to automate complex SAS analysis workflows. T
 - Incorporates domain knowledge from SasView's extensive model library
 - Provides uncertainty quantification for fitted parameters
 
-## 🙏 Acknowledgments
+## Link
 
 - [SasView Project](https://www.sasview.org/) for the core SAS modeling framework
 - [CrewAI](https://crewai.com/) for the multi-agent system architecture
