@@ -40,7 +40,7 @@ for directory in [CACHE_DIR, UPLOADS_DIR, GENERATED_DIR, PLOTS_DIR]:
     os.makedirs(directory, exist_ok=True)
 
 try:
-    from crewai_sas_agents import analyze_sas_data
+    from crewai_sas_agents import UnifiedSASAnalysisSystem
     BACKEND_AVAILABLE = True
     print("✅ Backend available")
     print(f"📁 Cache directory: {CACHE_DIR}")
@@ -53,6 +53,56 @@ except ImportError as e:
 
 # Set up logging for the right panel
 log_stream = StringIO()
+
+
+def is_complete_request(message):
+    """
+    Determine if a user message is complete enough to bypass interactive guidance.
+    Complete requests should go directly to the coordinator agent.
+    """
+    message_lower = message.lower()
+
+    # Complete generation requests
+    generation_keywords = ['generate', 'create', 'synthetic', 'simulate']
+    generation_patterns = [
+        r'generate.*data.*for',
+        r'create.*synthetic.*data',
+        r'simulate.*scattering',
+        r'generate.*using.*model'
+    ]
+
+    # Complete SLD calculation requests
+    sld_keywords = ['sld', 'scattering length density', 'calculate']
+    sld_patterns = [
+        r'calculate.*sld.*for',
+        r'sld.*for.*\w+',
+        r'scattering length density'
+    ]
+
+    # Complete fitting requests
+    fitting_keywords = ['fit', 'analyze', 'model']
+    fitting_indicators = ['csv', 'data', 'file', 'experimental']
+
+    # Check for generation requests
+    if any(keyword in message_lower for keyword in generation_keywords):
+        if any(re.search(pattern, message_lower) for pattern in generation_patterns):
+            return True
+        # Also check if it mentions specific models or shapes
+        if any(shape in message_lower for shape in ['sphere', 'cylinder', 'ellipsoid', 'lamellar']):
+            return True
+
+    # Check for SLD calculation requests
+    if any(keyword in message_lower for keyword in sld_keywords):
+        if any(re.search(pattern, message_lower) for pattern in sld_patterns):
+            return True
+
+    # Check for fitting requests (usually have data files mentioned)
+    if any(keyword in message_lower for keyword in fitting_keywords):
+        if any(indicator in message_lower for indicator in fitting_indicators):
+            return True
+
+    # If none of the above, it's likely incomplete/ambiguous
+    return False
 
 
 def clean_ansi_escape_sequences(text):
@@ -253,18 +303,20 @@ def format_results_for_chat(result):
     # First, let's handle the main result - CrewAI returns a CrewOutput object
     if hasattr(result, 'raw'):
         # CrewAI result with .raw attribute
-        text_parts.append("**🤖 Analysis Complete!**")
-        text_parts.append("✅ **Task completed successfully!**\n")
+        #text_parts.append("**🤖 Analysis Complete!**")
+        #text_parts.append("✅ **Task completed successfully!**\n")
         text_parts.append(str(result.raw))
     elif isinstance(result, str):
         # String result
-        text_parts.append("**🤖 Analysis Results:**")
-        text_parts.append("✅ **Task completed successfully!**\n")
+        #text_parts.append("**🤖 Analysis Results:**")
+        #text_parts.append("✅ **Task completed successfully!**\n")
         text_parts.append(result)
     elif isinstance(result, dict):
         # Dictionary result - handle various possible keys
-        text_parts.append("**🤖 Analysis Complete!**")
-        text_parts.append("✅ **Task completed successfully!**\n")
+
+        # Handle other dictionary results
+        #text_parts.append("**🤖 Analysis Complete!**")
+        #text_parts.append("✅ **Task completed successfully!**\n")
 
         # Handle success/error status
         if 'success' in result:
@@ -278,7 +330,7 @@ def format_results_for_chat(result):
 
         # Look for the main results from CrewAI
         if 'results' in result and result['results']:
-            text_parts.append("**📋 Agent Output:**")
+            #text_parts.append("**📋 Agent Output:**")
             result_text = str(result['results'])
             # Clean up the result text a bit
             if result_text.startswith("Task output:"):
@@ -422,14 +474,35 @@ def process_message(message, history, uploaded_file=None):
             sys.stderr = StreamCapture(original_stderr, log_stream)
 
             # The logging should now be captured automatically by our DualHandler
-            result = analyze_sas_data(
+
+            # Always use unified coordinator system
+            log_message("🤖 Using Unified Coordinator System")
+
+            # Initialize unified system with current API key and model
+            # Check if we need to recreate the system (model changed or doesn't exist)
+            current_system_model = session_state.get('unified_system_model')
+            current_system_api_key = session_state.get('unified_system_api_key')
+
+            if ('unified_system' not in session_state or
+                current_system_model != model or
+                current_system_api_key != api_key):
+
+                log_message(f"Creating new UnifiedSASAnalysisSystem with model: {model}")
+                session_state['unified_system'] = UnifiedSASAnalysisSystem(api_key=api_key, model=model)
+                session_state['unified_system_model'] = model
+                session_state['unified_system_api_key'] = api_key
+                log_message("Created new UnifiedSASAnalysisSystem")
+            else:
+                log_message(f"Using existing UnifiedSASAnalysisSystem with model: {model}")
+
+            unified_system = session_state['unified_system']
+
+            # Use the unified system
+            result = unified_system.analyze_data(
                 prompt=message,
                 data_path=data_path,
-                output_folder=GENERATED_DIR,  # Pass our cache directory for generated files
-                chat_history=history if history else [],  # Pass chat history for context (empty list if None)
-                verbose=True,
-                api_key=api_key,  # Pass API key from settings
-                model=model  # Pass model from settings
+                output_folder=GENERATED_DIR,
+                chat_history=history if history else []
             )
         finally:
             # Always restore original streams
@@ -576,16 +649,16 @@ def create_ui():
                     clear_btn = gr.Button("🗑️ Clear Chat", scale=1)
 
                 # Example prompts
-                gr.Markdown("### � Example Prompts:")
+                gr.Markdown("###  Example Prompts:")
                 with gr.Row():
                     example_btns = [
-                        gr.Button("Generate synthetic data for spherical protein nanoparticles", size="sm"),
-                        gr.Button("Fit uploaded data to a sphere model", size="sm")
+                        gr.Button("What can you do for me?", size="sm"),
+                        gr.Button("Generate synthetic data for spherical colloidal particles of diameter 100 A", size="sm"),
                     ]
                 with gr.Row():
                     example_btns.extend([
-                        gr.Button("Generate cylinder-shaped polymer data in D2O", size="sm"),
-                        gr.Button("Compare sphere and cylinder models for my data", size="sm")
+                        gr.Button("What is the SLD of Tetrahydrofuran", size="sm"),
+                        gr.Button("Fit uploaded data to a flexible cylinder model, solven is Tetrahydrofuran", size="sm")
                     ])
 
                 # System Logs Panel (moved from right column)
@@ -620,11 +693,12 @@ def create_ui():
                         choices=[
                             "openai/gpt-4o-mini",
                             "openai/gpt-4o",
-                            "anthropic/claude-3.5-sonnet",
+                            "openai/gpt-5",
+                            "anthropic/claude-sonnet-4",
                             "x-ai/grok-3",
                             "x-ai/grok-4",
-                            "google/gemini-pro",
-                            "google/gemini-flash"
+                            "google/gemini-2.5-pro",
+                            "google/gemini-2.5-flash"
                         ],
                         label="🤖 LLM Model",
                         value="openai/gpt-4o-mini",

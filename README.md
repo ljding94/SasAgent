@@ -1,97 +1,267 @@
-# SAS Agent - Phase 1: Minimum Prototype
+# SasAgent - AI-Powered Small Angle Scattering Analysis System
 
-This is the Phase 1 implementation of the SAS Agent, demonstrating feasibility with a basic CrewAI agent that uses SasView to fit I(q) scattering data.
+![User Interface](user_interface.png)
 
-## Features
+SasAgent is an intelligent multi-agent system designed to automate and enhance Small Angle Scattering (SAS) data analysis. Built with CrewAI and powered by SasView, it provides an intuitive web interface for data fitting, synthetic data generation, and scattering length density (SLD) calculations.
 
-- **Synthetic Data Generation**: Generate I(q) data with known ground truth parameters using SasModels
-- **SasView Tool**: CrewAI-compatible tool wrapper for fitting scattering data with SasView/Bumps
-- **Basic CrewAI Agent**: Single agent that can fit data based on natural language prompts
+## 🚀 Features
 
-## Installation
+### 🤖 Multi-Agent AI System
+- **Coordinator Agent**: Orchestrates analysis workflows and task delegation
+- **RAG Model Selector**: Intelligent model selection using retrieval-augmented generation
+- **SasView Fitter**: Automated parameter fitting with Bumps optimization
+- **Synthetic Data Generator**: Creates realistic test datasets with known parameters
 
-1. Install dependencies:
+### 📊 Core Capabilities
+- **Automated Model Fitting**: Fit SAS data to physical models with AI-guided parameter optimization
+- **Synthetic Data Generation**: Generate realistic scattering data for testing and validation
+- **SLD Calculation**: Calculate scattering length densities for neutron and X-ray scattering
+- **Interactive Web Interface**: User-friendly Gradio-based frontend for all operations
+- **RAG-Enhanced Model Selection**: Smart model recommendations based on data characteristics
+
+### 🔧 Supported Analysis Types
+- Spherical particles (hard spheres, fuzzy spheres, core-shell)
+- Polymer systems (flexible cylinders, chains)
+- Colloids and nanoparticles
+- Custom model parameters and constraints
+
+## 📋 Requirements
+
+### System Dependencies
+- Python 3.8+
+- SasView/SasModels
+- Bumps fitting engine
+
+### Python Packages
 ```bash
-pip install -r requirements.txt
+# Core scientific computing
+numpy
+scipy
+pandas
+matplotlib
+
+# SAS modeling and fitting
+sasmodels
+
+# AI agent framework
+crewai
+
+# Web interface
+gradio
+pillow
 ```
 
-2. Set up your OpenRouter API key (required for CrewAI):
+## 🛠️ Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/ljding94/SasAgent.git
+   cd SasAgent
+   ```
+
+2. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Set up environment variables** (Optional)
+   ```bash
+   # Disable telemetry for privacy
+   export OTEL_SDK_DISABLED=true
+   export CREWAI_TELEMETRY_DISABLED=true
+   export DO_NOT_TRACK=1
+   ```
+
+4. **Configure LLM backend**
+   - Set up your preferred LLM API (OpenAI, OpenRouter, etc.)
+   - Configure API keys in environment variables
+
+## 🚀 Quick Start
+
+### Launch the Web Interface
 ```bash
-export OPENROUTER_API_KEY='your-openrouter-api-key-here'
+python app.py
 ```
 
-Get your API key from: https://openrouter.ai/keys
+The application will start a Gradio web interface accessible at `http://localhost:7860`
 
-## Usage
+### Basic Usage
 
-### Quick Test
-Run the complete Phase 1 test suite:
-```bash
-python test_phase1.py
+1. **Data Fitting**
+   - Upload your SAS data file (CSV format with q, I columns)
+   - Specify the model type or let the AI suggest one
+   - Set parameter constraints if needed
+   - Click "Fit Data" to start the analysis
+
+2. **Synthetic Data Generation**
+   - Choose a model type (sphere, cylinder, etc.)
+   - Set model parameters
+   - Generate synthetic data with optional noise
+   - Use for testing and validation
+
+3. **SLD Calculation**
+   - Enter molecular formula (e.g., "H2O", "C6H6")
+   - Specify density and measurement conditions
+   - Calculate neutron or X-ray scattering length density
+
+## 📁 Project Structure
+
+```
+SasAgent/
+├── .gitignore                      # Git ignore configuration
+├── README.md                       # Project README (this file)
+├── requirements.txt                # Python dependencies (requirements.txt also supported)
+├── app.py                          # Main Gradio web interface
+├── crewai_sas_agents.py            # Multi-agent system implementation
+├── *.py                            # Other Python modules and scripts
+├── SAS/                            # Core SAS analysis modules
+│   ├── __init__.py                 # Package initialization
+│   ├── fitting.py                  # Model fitting with Bumps
+│   ├── generation.py               # Synthetic data generation
+│   ├── sld_calculator.py           # SLD calculations
+│   └── *.py                        # Additional SAS analysis modules
+├── RAG/                            # Retrieval-Augmented Generation system
+│   ├── README.md                   # RAG system documentation
+│   ├── sasview_rag_system.py       # RAG implementation
+│   ├── sasview_data_pipeline.py    # Data processing pipeline
+│   └── *.py                        # Additional RAG modules
+└── test/                           # Unit tests and examples (tracked)
+    ├── README.md                   # Test documentation
+    └── *.py                        # Test files and examples
 ```
 
-### Individual Components
+## 🧪 Usage Examples
 
-#### Generate Synthetic Data
+The following examples demonstrate how to use SasAgent's **AI-powered multi-agent system** through natural language prompts. The system automatically coordinates between different specialist agents to complete complex SAS analysis tasks.
+
+### Example 1: AI-Guided Data Fitting
 ```python
-from synthetic_data import generate_synthetic_data
+from crewai_sas_agents import analyze_sas_data
 
-csv_path, ground_truth = generate_synthetic_data()
-print(f"Data saved to: {csv_path}")
-print(f"Ground truth: {ground_truth}")
+# Let AI analyze and fit experimental data with intelligent model selection
+result = analyze_sas_data(
+    prompt="Analyze my experimental data and fit it to the best model for spherical gold nanoparticles in D2O",
+    data_path="experimental_data.csv"
+)
+
+# AI system will:
+# 1. Coordinator agent routes the task to fitting specialist
+# 2. RAG agent suggests appropriate models based on sample description
+# 3. SasView fitter performs automated parameter optimization
+# 4. Return comprehensive results with plots and parameter uncertainties
+
+print(f"Best fit model: {result['model']}")
+print(f"Fitted parameters: {result['parameters']}")
+print(f"Chi-squared: {result['chi_squared']}")
 ```
 
-#### Test SasView Fitting Tool
+### Example 2: AI-Powered Synthetic Data Generation
 ```python
-from sasview_tool import sasview_fit
+from crewai_sas_agents import analyze_sas_data
 
-result = sasview_fit("data/synthetic_sphere.csv", "sphere", {"radius": [10, 100]})
-print(result['fit_json'])
+# Generate realistic synthetic data using AI-guided parameter selection
+result = analyze_sas_data(
+    prompt="Generate synthetic scattering data for flexible polymer chains in THF solvent with 5% noise",
+    output_folder="./generated_data"
+)
+
+# AI system will:
+# 1. Coordinator identifies this as a generation task
+# 2. RAG agent selects appropriate polymer model (flexible_cylinder)
+# 3. AI calculates realistic SLD values for THF solvent
+# 4. Generator creates synthetic data with specified noise level
+# 5. Saves data and plots to specified folder
+
+print(f"Generated file: {result['data_file']}")
+print(f"Ground truth parameters: {result['true_parameters']}")
 ```
 
-#### Run CrewAI Agent
+### Example 3: Intelligent SLD Calculation
 ```python
-from crewai_prototype import run_analysis
+from crewai_sas_agents import analyze_sas_data
 
-result = run_analysis("Fit this data to a sphere model with radius 10-100 Å", "data/synthetic_sphere.csv")
-print(result)
+# AI-powered SLD calculation with chemical formula understanding
+result = analyze_sas_data(
+    prompt="Calculate the neutron scattering length density for polystyrene (C8H8)n with density 1.05 g/cm³"
+)
+
+# AI system will:
+# 1. Coordinator recognizes SLD calculation request
+# 2. Parses chemical formula and physical parameters
+# 3. Calculates SLD using SasView's algorithms
+# 4. Provides detailed results with units and context
+
+print(f"Neutron SLD: {result['sld_real']:.2e} Å⁻²")
+print(f"X-ray SLD: {result['sld_xray']:.2e} Å⁻²")
 ```
 
-## Files
+### Example 4: Conversational Analysis with Memory
+```python
+from crewai_sas_agents import UnifiedSASAnalysisSystem
 
-- `synthetic_data.py` - Generate synthetic I(q) data with known parameters
-- `sasview_tool.py` - SasView fitting tool wrapper for CrewAI
-- `crewai_prototype.py` - Basic CrewAI agent implementation
-- `test_phase1.py` - Complete test suite for Phase 1
-- `requirements.txt` - Python dependencies
+# Initialize system for conversational analysis
+sas_system = UnifiedSASAnalysisSystem()
+chat_history = []
 
-## Expected Results
+# First interaction - generate data
+result1 = sas_system.analyze_data(
+    prompt="Generate synthetic data for core-shell spheres with silica core and polymer shell",
+    chat_history=chat_history
+)
+chat_history.append([
+    "Generate synthetic data for core-shell spheres with silica core and polymer shell",
+    f"Generated synthetic data: {result1['summary']}"
+])
 
-When working correctly:
+# Second interaction - the AI remembers previous context
+result2 = sas_system.analyze_data(
+    prompt="Now fit this generated data to see if we can recover the original parameters",
+    data_path=result1['data_file'],
+    chat_history=chat_history
+)
 
-1. **Synthetic Data**: Generates CSV files with q,I columns in `data/` folder
-2. **SasView Tool**: Fits sphere model to synthetic data, returns parameters close to ground truth (radius ≈ 50 Å)
-3. **CrewAI Agent**: Interprets natural language prompts and calls the fitting tool appropriately
+# AI system maintains context and understands "this generated data" refers to result1
+print(f"Parameter recovery accuracy: {result2['parameter_accuracy']}")
+```
 
-## Example Ground Truth vs Fitted Parameters
+### Example 5: Advanced Model Selection with Constraints
+```python
+from crewai_sas_agents import analyze_sas_data
 
-For synthetic sphere data with ground truth:
-- radius: 50 Å
-- sld: 1
-- sld_solvent: 0
-- background: 0
+# Complex analysis with user-specified constraints
+result = analyze_sas_data(
+    prompt="""Fit my colloid data to a hard sphere model.
+    The particle radius should be between 20-100 Å,
+    and the sample SLD is approximately 1.5e-6 Å⁻².
+    The solvent is D2O.""",
+    data_path="colloid_experiment.csv"
+)
 
-The fitted parameters should be close to these values (within ~5% due to noise).
+# AI system will:
+# 1. Parse natural language constraints
+# 2. Set appropriate parameter bounds (radius: 20-100 Å)
+# 3. Use known D2O SLD value (6.4e-6 Å⁻²)
+# 4. Apply user-specified sample SLD constraint
+# 5. Perform constrained optimization with uncertainty analysis
 
-## Next Steps
+print(f"Optimized radius: {result['radius']} ± {result['radius_uncertainty']} Å")
+```
 
-- **Phase 2**: Add RAG tool with scraped SasView documentation
-- **Phase 3**: Implement multi-agent system
-- **Phase 4**: Build interactive web UI with Gradio
+## 🔬 Scientific Background
 
-## Troubleshooting
+SasAgent leverages the power of AI to automate complex SAS analysis workflows. The system:
 
-- **Import Errors**: Ensure all dependencies are installed (`pip install -r requirements.txt`)
-- **API Key Errors**: Set `OPENROUTER_API_KEY` environment variable (get from https://openrouter.ai/keys)
-- **Fitting Errors**: Check that CSV data has correct format (q,I columns)
-- **Plot Generation**: Plots are saved as base64 strings and PNG files for inspection
+- Uses physics-informed model selection through RAG
+- Employs Bayesian optimization for parameter fitting
+- Incorporates domain knowledge from SasView's extensive model library
+- Provides uncertainty quantification for fitted parameters
+
+## 🙏 Acknowledgments
+
+- [SasView Project](https://www.sasview.org/) for the core SAS modeling framework
+- [CrewAI](https://crewai.com/) for the multi-agent system architecture
+- [Bumps](https://bumps.readthedocs.io/) for the optimization engine
+- [Gradio](https://gradio.app/) for the web interface framework
+
+
+**SasAgent** - Making Small Angle Scattering analysis intelligent and accessible 🔬✨

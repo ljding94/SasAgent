@@ -7,8 +7,8 @@ Multi-agent system: Coordinator + RAG model selector + SasView fitter + Syntheti
 import os
 import re
 import json
-from typing import Dict, Any
-from pydantic import BaseModel
+from typing import Dict, Any, Optional
+from pydantic import BaseModel, Field
 
 # Disable CrewAI telemetry to prevent connection errors
 os.environ['OTEL_SDK_DISABLED'] = 'true'
@@ -31,6 +31,7 @@ from crewai.tools import BaseTool
 try:
     from SAS.fitting import sasview_fit_with_bumps, sasview_fit_tool
     from SAS.generation import generate_sasview_data
+    from SAS.sld_calculator import calculate_sld
     SAS_TOOLS_AVAILABLE = True
     print("✅ SAS tools available")
 except ImportError as e:
@@ -63,6 +64,7 @@ class SasViewFittingInput(BaseModel):
     csv_path: str
     model_name: str
     parameter_guidance: str = ""
+    fixed_params: dict = None
     output_dir: str = None
 
 
@@ -106,45 +108,79 @@ def setup_llm(api_key: str = None, model: str = None):
 # ========================================================================================
 
 def create_coordinator_agent(api_key: str = None, model: str = None) -> Agent:
-    """Create a coordinator agent to route tasks based on user intent."""
+    """Create a smart coordinator agent to route tasks to appropriate specialists."""
     llm = setup_llm(api_key, model)
     return Agent(
-        role="Task Coordinator",
-        goal="Analyze user prompts and route to appropriate tasks (data generation or fitting)",
-        backstory="""You are an expert in interpreting user prompts for small-angle scattering (SAS) tasks.
-        You analyze natural language requests to determine whether the user wants to generate synthetic data
-        or fit existing data, then delegate to the appropriate specialist agent.""",
+        role="SAS Task Coordinator",
+        goal="Analyze user prompts and intelligently route to appropriate specialist agents (SLD calculation, data generation, or fitting)",
+        backstory="""You are an expert SAS analysis coordinator who understands four main task types:
+        0. SYSTEM INTRODUCTION: introduce the user the following three capability you have.
+        1. SLD CALCULATION: User wants to calculate scattering length density from molecular formulas
+        2. DATA GENERATION: User wants to generate synthetic SAS data
+        3. DATA FITTING: User wants to fit experimental data to models
+
+        You analyze prompts and route to the appropriate specialist agent.""",
         verbose=True,
         allow_delegation=False,
-        memory=True,  # Enable memory for conversation context
+        memory=True,
         llm=llm
     )
 
 
 def create_coordinator_task(prompt: str, folder_path: str = None, data_path: str = None, api_key: str = None, model: str = None) -> Task:
-    """Create a task to classify the user prompt and decide the workflow."""
+    """Create a task to intelligently classify user prompts and route to appropriate specialists."""
     return Task(
         description=f"""
-        Analyze the following user prompt and determine whether it requests:
-        1. Synthetic data generation (keywords: generate, create, synthetic, simulate)
-        2. Data fitting (keywords: fit, analyze, model, curve fit)
+        Analyze the following user prompt and determine the task type:
+
+        0. SYSTEM_INTRODUCTION: Tell the user about your capabilities and how you can assist with SAS analysis. provide concise summary about the three main tasks you can help with: sld calculation, synthetic data generation, and data fitting.
+           - Keywords: "what can you do", "capabilities", "help", "introduction", "what are you", "how can you help", "what is this system"
+           - Examples: "What can you do for me?", "What are your capabilities?", "How can you help?", "What is this system?"
+
+        1. SLD_CALCULATION: User wants to calculate SLD from molecular formulas
+           - Keywords: "sld", "scattering length density", "calculate", molecular formulas like "H2O", "D2O"
+           - Examples: "Calculate SLD for H2O", "What's the SLD of D2O", "SLD calculation"
+
+        2. GENERATION: User wants to generate synthetic SAS data
+           - Keywords: "generate", "create", "synthetic", "simulate"
+           - Examples: "Generate data for spheres", "Create synthetic cylinder data"
+
+        3. FITTING: User wants to fit experimental data
+           - Keywords: "fit", "analyze", "model", "curve fit"
+           - Has data file path or mentions existing data
+           - Examples: "Fit my data to sphere model", "Analyze this CSV file"
 
         Prompt: {prompt}
         Output Folder: {folder_path or 'Use default output folder'}
         Data File Path: {data_path or 'none'}
 
         Steps:
-        1. Identify keywords and context (e.g., presence of file path for fitting).
-        2. Extract sample description and any parameters.
-        3. If a data file path is provided above, use that path. Otherwise, extract from prompt if present.
-        4. Output a structured decision in this EXACT format:
+        1. Analyze keywords and context carefully
+           - FIRST check for system introduction requests: "what can you do", "capabilities", "help", "introduction", "what are you"
+           - If user is asking about system capabilities or introduction, classify as SYSTEM_INTRODUCTION
+        2. Extract sample description and any parameters
+        3. If data file provided, it's likely FITTING unless explicitly SLD calculation
+        4. CRITICAL: Extract SLD parameters and convert to explicit format:
+           - "sample sld is about 1" → "sample SLD 1.0e-6 Å⁻²"
+           - "solvent is D2O" → "solvent SLD 6.4e-6 Å⁻²" (D2O standard value)
+           - "solvent is H2O" → "solvent SLD -0.56e-6 Å⁻²" (H2O standard value)
+           - "solvent is THF" → "solvent THF (calculate SLD)"
+           - "sample is C12H6" → "sample C12H6 (calculate SLD)"
+           - For molecular formulas not in standard list: Use format "formula_name (calculate SLD)"
+           - Any numeric SLD values should be converted to scientific notation with units
+        5. Extract explicitly requested model if mentioned:
+           - Look for phrases like "using sphere model", "fit to cylinder model", "use lamellar model"
+           - Extract the specific model name (e.g., "sphere", "cylinder", "lamellar")
+           - If no explicit model is mentioned, leave as "auto"
+        6. Output structured decision in this EXACT format:
 
-        INTENT: [generation|fitting]
+        INTENT: [system_introduction|sld_calculation|generation|fitting]
         SAMPLE_DESCRIPTION: [extracted_description]
         DATA_PATH: [use_provided_data_file_path_or_extract_from_prompt_or_none]
-        PARAMETERS: [extracted_parameters_or_none]
+        PARAMETERS: [extracted_parameters_with_explicit_sld_values_or_none]
+        MODEL: [explicitly_requested_model_name_or_auto]
         """,
-        expected_output="Structured decision in the specified format",
+        expected_output="Structured decision with intent classification (system_introduction, sld_calculation, generation, or fitting)",
         agent=create_coordinator_agent(api_key, model)
     )
 
@@ -263,6 +299,68 @@ class RAGModelSelectorTool(BaseTool):
         }
 
 
+# ========================================================================================
+# SPECIALIZED AGENT CREATORS
+# ========================================================================================
+
+def create_sld_calculator_agent(api_key: str = None, model: str = None) -> Agent:
+    """Create a dedicated SLD calculator agent."""
+    llm = setup_llm(api_key, model)
+    return Agent(
+        role="SLD Calculator Specialist",
+        goal="Calculate scattering length density (SLD) values from molecular formulas and provide clear results",
+        backstory="""You are an expert in calculating neutron and x-ray scattering length densities.
+        You help users calculate SLD values from molecular formulas and densities using SasView's calculator.
+        You provide clear, accurate results with proper units and context.""",
+        verbose=True,
+        allow_delegation=False,
+        tools=[SLDCalculatorTool()],
+        llm=llm
+    )
+
+
+def create_interactive_fitting_agent(api_key: str = None, model: str = None) -> Agent:
+    """Create an interactive fitting agent that can work with provided parameters or prompt for them."""
+    llm = setup_llm(api_key, model)
+    return Agent(
+        role="Interactive SAS Fitting Specialist",
+        goal="Perform SAS data fitting using provided parameters or guide users through parameter collection",
+        backstory="""You are an expert SAS data fitting specialist who can work in two modes:
+
+        1. AUTOMATIC MODE: When SLD parameters are provided in the task, extract and use them directly:
+           - When user says "sample SLD is about 1" → use sld=1.0 (assume SasView units: 10^-6 Å^-2)
+           - When user says "solvent is D2O" → calculate SLD using SLD calculator tool and use ONLY the real part
+           - When user says "SLD 2.0e-6 Å^-2" → use sld=2.0 (strip the e-6 since SasView expects 10^-6 units)
+
+        2. INTERACTIVE MODE: When no parameters are provided, guide users through parameter collection.
+
+        MODEL SELECTION LOGIC:
+        - FIRST: Check if the task specifies a specific model name (e.g., "USE sphere model directly")
+        - If YES: Use that exact model name with sasview_fitting_tool immediately - DO NOT use rag_model_selector
+        - If NO or "auto": Then use rag_model_selector to recommend a model
+
+        CRITICAL PARAMETER HANDLING:
+        - FIXED PARAMETERS (never fit these): ONLY sld and sld_solvent parameters should be fixed
+        - GUIDANCE PARAMETERS (use as initial guesses): All other parameters like length, radius, kuhn_length should be fitted, not fixed
+
+        Examples of parameter handling:
+        - "sample SLD about 1, kuhn length about 8" → fixed_params={"sld": 1.0}, parameter_guidance="kuhn_length=8"
+        - "SLD 1.0, radius 20nm" → fixed_params={"sld": 1.0}, parameter_guidance="radius=200.0" (convert to Angstroms)
+        - "solvent D2O, length 100nm" → fixed_params={"sld_solvent": 6.4}, parameter_guidance="length=1000.0"
+
+        NEVER FIX structural parameters like length, radius, kuhn_length, scale, background - these should be fitted!
+        Use SLD calculator tool for molecular formulas (H2O, D2O, etc.) and extract ONLY the real part for fitting
+        For direct numerical values, assume they're in SasView units (10^-6 Å^-2)
+        CRITICAL: For SAS fitting, only use the real part (sld_real) from SLD calculations - ignore imaginary components
+
+        When parameters are given, extract them automatically and perform the complete fitting with plots.""",
+        verbose=True,
+        allow_delegation=True,  # Can delegate to SLD calculator
+        tools=[RAGModelSelectorTool(), SasViewFittingTool(), SLDCalculatorTool()],
+        llm=llm
+    )
+
+
 def create_model_selector_agent(api_key: str = None, model: str = None) -> Agent:
     """Create the RAG-powered model selection agent"""
     llm = setup_llm(api_key, model)
@@ -294,6 +392,111 @@ def create_model_selector_agent(api_key: str = None, model: str = None) -> Agent
         memory=True,  # Enable memory for conversation context
         tools=[RAGModelSelectorTool()],
         llm=llm
+    )
+
+
+def create_sld_calculation_task(formula: str, density: float = None, sample_description: str = "", api_key: str = None, model: str = None) -> Task:
+    """Create a task for SLD calculation."""
+    return Task(
+        description=f"""
+        Calculate the scattering length density (SLD) for the given molecular formula.
+
+        Formula: {formula}
+        Density: {density if density else 'Extract from sample description or use typical value'}
+        Sample Description: {sample_description}
+
+        Instructions:
+        1. Use the SLD calculator tool to compute neutron SLD
+        2. If density is not provided, estimate reasonable density based on the molecular formula
+        3. Provide clear results with proper units (10⁻⁶ Å⁻²)
+        4. Include both real and imaginary components
+        5. Add context about the material if possible
+
+        Expected Output:
+        - SLD calculation results with clear units
+        - Material context and properties
+        - Recommendations for use in SAS modeling
+        """,
+        expected_output="Complete SLD calculation results with proper units and context",
+        agent=create_sld_calculator_agent(api_key, model)
+    )
+
+
+def create_interactive_fitting_task(data_path: str, sample_description: str = "", parameters: str = "", requested_model: str = "auto", api_key: str = None, model: str = None) -> Task:
+    """Create a task for interactive fitting with SLD parameter collection."""
+
+    # Check if parameters are already provided
+    params_provided = parameters and parameters.strip() and parameters.lower() != "none"
+
+    if params_provided:
+        # Parameters are provided - proceed directly with fitting
+        task_description = f"""
+        Perform SAS data fitting using the provided parameters.
+
+        Data File: {data_path}
+        Sample Description: {sample_description}
+        Provided Parameters: {parameters}
+
+        Workflow:
+        1. Model Selection:
+           - If a specific model was requested: USE "{requested_model}" model directly
+           - If no specific model requested (auto): Use RAG model selector to recommend appropriate model
+        2. Extract and process SLD parameters:
+           - For molecular formulas (H2O, D2O): Use SLD calculator tool and extract ONLY the real part (sld_real)
+           - For direct numerical values: Use as-is (assume SasView units: 10^-6 Å^-2)
+           - CRITICAL: SAS fitting uses only the real part of SLD - ignore imaginary components
+           - Examples:
+             * "sample SLD is about 1" → sld=1.0
+             * "solvent is D2O" → use SLD calculator for D2O and extract sld_real value
+             * "SLD 2.0e-6 Å^-2" → sld=2.0 (strip scientific notation)
+        3. CRITICAL: Only fix SLD parameters (sld, sld_solvent) - NEVER fix structural parameters
+           - FIXED: sld and sld_solvent only
+           - FITTED: length, radius, kuhn_length, scale, background (use guidance as initial values)
+        4. Perform the fitting and generate results with plots
+        5. Report fitting results with quality metrics
+
+        PARAMETER HANDLING RULES:
+        - "kuhn length about 8" → parameter_guidance="kuhn_length=8" (NOT fixed_params)
+        - "sample SLD 1.0" → fixed_params={{"sld": 1.0}}
+        - "length 100nm" → parameter_guidance="length=1000.0" (NOT fixed_params)
+        - "solvent D2O" → fixed_params={{"sld_solvent": calculated_value}}
+
+        Expected Output:
+        - Model recommendation with confidence
+        - Fitting results with fixed SLD parameters
+        - Quality assessment and interpretation
+        - Generated plots saved to appropriate folder
+        """
+    else:
+        # No parameters provided - use interactive mode
+        task_description = f"""
+        Perform interactive SAS data fitting with step-by-step parameter collection.
+
+        Data File: {data_path}
+        Sample Description: {sample_description}
+
+        Workflow:
+        1. Use RAG model selector to recommend appropriate model for the sample
+        2. Ask user for SLD values:
+           - Option A: Calculate from molecular formula and density
+           - Option B: Accept direct SLD value input
+        3. Ask for SLD_solvent values (same options)
+        4. Perform fitting with fixed SLD parameters
+        5. Report fitting results with quality metrics
+
+        CRITICAL: Ask for SLD parameters before fitting. Use delegation to SLD calculator when formulas are provided.
+
+        Expected Output:
+        - Model recommendation with confidence
+        - SLD parameter collection process
+        - Fitting results with fixed parameters
+        - Quality assessment and interpretation
+        """
+
+    return Task(
+        description=task_description,
+        expected_output="Complete fitting workflow with results and plots",
+        agent=create_interactive_fitting_agent(api_key, model)
     )
 
 
@@ -354,14 +557,15 @@ class SasViewFittingTool(BaseTool):
 
     name: str = "sasview_fitting_tool"
     description: str = """
-    Fits small-angle scattering I(q) data to SasView models.
+    Fits small-angle scattering I(q) data to SasView models with support for fixed parameters.
 
-    USAGE: sasview_fitting_tool(csv_path="path/to/data.csv", model_name="exact_model_name", parameter_guidance="optional_guidance", output_dir="optional_output_dir")
+    USAGE: sasview_fitting_tool(csv_path="path/to/data.csv", model_name="exact_model_name", parameter_guidance="optional_guidance", fixed_params="optional_fixed_params", output_dir="optional_output_dir")
 
     Parameters:
     - csv_path (required): Full path to CSV file with q,I columns
     - model_name (required): Exact SasView model name (e.g., "sphere", "cylinder", "surface_fractal")
     - parameter_guidance (optional): Additional fitting guidance from model selector
+    - fixed_params (optional): Dictionary of parameters to fix during fitting (e.g., {"sld": 1.0, "sld_solvent": 0.0})
     - output_dir (optional): Directory to save plot files (defaults to cache/plots if available)
 
     Returns:
@@ -369,13 +573,14 @@ class SasViewFittingTool(BaseTool):
     - r_squared: Goodness of fit (higher is better, >0.9 excellent, >0.8 good)
     - rmse: Root mean square error (lower is better)
     - fitted_parameters: Dictionary of fitted parameter values
+    - fixed_parameters: Dictionary of parameters that were fixed
     - report: Human-readable analysis
 
-    Example: sasview_fitting_tool(csv_path="data/sample.csv", model_name="sphere", parameter_guidance="Focus on radius parameter")
+    Example: sasview_fitting_tool(csv_path="data/sample.csv", model_name="sphere", fixed_params={"sld": 1.0})
     """
     args_schema: type[BaseModel] = SasViewFittingInput
 
-    def _run(self, csv_path: str, model_name: str, parameter_guidance: str = "", output_dir: str = None) -> Dict[str, Any]:
+    def _run(self, csv_path: str, model_name: str, parameter_guidance: str = "", fixed_params: dict = None, output_dir: str = None) -> Dict[str, Any]:
         """Execute the SasView fitting"""
         try:
             if not os.path.exists(csv_path):
@@ -406,11 +611,12 @@ class SasViewFittingTool(BaseTool):
 
             print(f"📁 Fitting plots will be saved to: {output_dir}")
 
-            # Call sasview_fit with agent label, output directory, and parsed constraints
+            # Call sasview_fit with agent label, output directory, constraints, and fixed parameters
             result = sasview_fit_with_bumps(
                 csv_path,
                 model_name,
                 param_constraints=param_constraints if param_constraints else None,
+                fixed_params=fixed_params,
                 plot_label="CrewAI_Unified_Agent",
                 output_dir=output_dir
             )
@@ -429,6 +635,7 @@ class SasViewFittingTool(BaseTool):
                 "chi_squared_reduced": fit_data['chi_squared_reduced'],
                 "fitted_parameters": fit_data['parameters'],
                 "parameter_errors": fit_data.get('parameter_errors', {}),
+                "fixed_parameters": fixed_params or {},
                 "report": result['report'],
                 "plot_file": result.get('plot_file', ''),
                 "data_file": csv_path,
@@ -449,12 +656,12 @@ class SasViewFittingTool(BaseTool):
         text_lower = guidance_text.lower()
 
         # Look for "kuhn length" pattern first (most specific)
-        kuhn_match = re.search(r'kuhn\s*length\s*(?:to|=|:)?\s*([0-9.]+)', text_lower)
+        kuhn_match = re.search(r'kuhn\s*length\s*(?:about|to|=|:)?\s*([0-9.]+)', text_lower)
         if kuhn_match:
             constraints['kuhn_length'] = float(kuhn_match.group(1))
 
         # Look for standalone "length" pattern (but not "kuhn length")
-        length_match = re.search(r'(?<!kuhn\s)(?<!kuhn_)length\s*(?:to|=|:)?\s*([0-9.]+)', text_lower)
+        length_match = re.search(r'(?<!kuhn\s)(?<!kuhn_)length\s*(?:about|to|=|:)?\s*([0-9.]+)', text_lower)
         if length_match:
             constraints['length'] = float(length_match.group(1))
 
@@ -575,7 +782,6 @@ class SyntheticDataTool(BaseTool):
     CRITICAL UNIT CONVERSION RULES:
     - ALL length parameters MUST be in Angstroms (Å) in SasView
     - Convert nm to Å by multiplying by 10 (e.g., 30nm = 300Å)
-    - Convert μm to Å by multiplying by 10000 (e.g., 2μm = 20000Å)
     - SLD values are in 10⁻⁶ Å⁻²
     - Q-values are in Å⁻¹
 
@@ -585,7 +791,7 @@ class SyntheticDataTool(BaseTool):
     - sample_description (required): Description of the sample
     - model_name (optional): Exact SasView model name (e.g., "sphere")
     - params (optional): Dictionary of model parameters (e.g., {"radius": 300.0, "sld": 2.0}) - RADIUS IN ANGSTROMS!
-    - q_values (optional): DO NOT USE unless specifically requested. Tool automatically calculates optimal q-range based on particle size (0.01/L to 10/L where L is characteristic size)
+    - q_values (optional): DO NOT USE unless specifically requested. Tool automatically calculates optimal q-range based on particle size (0.1/L to 50/L where L is characteristic size)
     - q_range (optional): String description if custom q-range needed (e.g., "0.01 to 1.0 with 150 points")
     - folder_path (optional): Output folder path for generated files (default: "data/test_ai_generation")
 
@@ -594,7 +800,7 @@ class SyntheticDataTool(BaseTool):
     - For spheres: uses radius as characteristic size
     - For cylinders: uses radius as characteristic size
     - For lamellae: uses thickness as characteristic size
-    - Formula: q_min = 0.01/L, q_max = 10/L where L is characteristic size in Angstroms
+    - Formula: q_min = 0.1/L, q_max = 50/L where L is characteristic size in Angstroms
     - ONLY provide q_values if user specifically requests a custom range
 
     Returns:
@@ -813,6 +1019,24 @@ class SyntheticDataTool(BaseTool):
                         "original_string": q_range
                     }
                     return q_info
+
+                # Parse simple "X to Y" format without point count
+                match = re.search(r'(\d+\.?\d*)\s*to\s*(\d+\.?\d*)', q_range.lower())
+                if match:
+                    q_min, q_max = float(match.group(1)), float(match.group(2))
+                    # Use 100 points as default for simple range
+                    # Use log-linear (log-spaced) q-array for better sampling across decades
+                    q_min = max(q_min, 1e-6)
+                    q_array = np.logspace(np.log10(q_min), np.log10(q_max), 120)
+                    q_info = {
+                        "source": "string_description_simple",
+                        "q_min": q_min,
+                        "q_max": q_max,
+                        "num_points": 120,
+                        "q_array": q_array.tolist(),
+                        "original_string": q_range
+                    }
+                    return q_info
             except (ValueError, TypeError):
                 pass
 
@@ -834,9 +1058,11 @@ class SyntheticDataTool(BaseTool):
 
         # Look for explicit q-range mentions
         q_patterns = [
-            r'q.*?(\d+\.?\d*)\s*to\s*(\d+\.?\d*)',
-            r'q.*?range.*?(\d+\.?\d*)\s*[-–]\s*(\d+\.?\d*)',
-            r'(\d+\.?\d*)\s*[-–]\s*(\d+\.?\d*)\s*Å[-¹]?',
+            r'q.*?range.*?\(\s*(\d+\.?\d*)\s*,\s*(\d+\.?\d*)\s*\)',  # q range (0.001, 0.5)
+            r'q.*?\(\s*(\d+\.?\d*)\s*,\s*(\d+\.?\d*)\s*\)',         # q (0.001, 0.5)
+            r'q.*?(\d+\.?\d*)\s*to\s*(\d+\.?\d*)',                  # q 0.001 to 0.5
+            r'q.*?range.*?(\d+\.?\d*)\s*[-–]\s*(\d+\.?\d*)',        # q range 0.001-0.5
+            r'(\d+\.?\d*)\s*[-–]\s*(\d+\.?\d*)\s*Å[-¹]?',          # 0.001-0.5 Å⁻¹
         ]
 
         for pattern in q_patterns:
@@ -881,7 +1107,7 @@ class SyntheticDataTool(BaseTool):
         return {}
 
     def _calculate_smart_q_range(self, model_name: str, params: dict, description: str) -> dict:
-        """Calculate smart q-range based on characteristic size: q = 0.01/L to 10/L"""
+        """Calculate smart q-range based on characteristic size: q = 0.5/L to 10/L"""
         import numpy as np
 
         # Model-specific characteristic size mapping
@@ -978,13 +1204,23 @@ class SyntheticDataTool(BaseTool):
             # No characteristic size found, use instrument-based q-range
             return self._get_instrument_based_q_range(description)
 
-        # Calculate smart q-range: 0.01/L to 10/L
-        q_min = 0.01 / characteristic_size
-        q_max = 10.0 / characteristic_size
+        # Calculate smart q-range: 0.1/L to 10/L for optimal size and structure information
+        # For a particle of size L, we need:
+        # - q_min ~ 0.1/L to capture the overall size/shape
+        # - q_max ~ 10/L to capture structural details
+        q_min = 0.5 / characteristic_size
+        q_max = 20.0 / characteristic_size
 
         # Apply reasonable bounds to avoid extreme ranges
-        q_min = max(q_min, 0.001)  # Don't go below 0.001 Å⁻¹
-        q_max = min(q_max, 10.0)   # Don't go above 10 Å⁻¹
+        q_min = max(q_min, 0.0005)  # Don't go below 0.0005 Å⁻¹ (instrument limit)
+        q_max = min(q_max, 5.0)     # Don't go above 5.0 Å⁻¹ (typical SAXS/SANS limit)
+
+        print("🎯 Smart q-range calculation:")
+        print(f"   Characteristic size: {characteristic_size} Å")
+        print(f"   Initial q_min: {0.1/characteristic_size:.4f} Å⁻¹")
+        print(f"   Initial q_max: {10.0/characteristic_size:.4f} Å⁻¹")
+        print(f"   Final q_min: {q_min:.4f} Å⁻¹")
+        print(f"   Final q_max: {q_max:.4f} Å⁻¹")
 
         # Ensure q_min < q_max
         if q_min >= q_max:
@@ -992,8 +1228,12 @@ class SyntheticDataTool(BaseTool):
             q_max = 1.0
 
         # Generate q-array with 150 points for good resolution
-        num_points = 150
-        q_array = np.linspace(q_min, q_max, num_points)
+        num_points = 200
+        # Use logarithmically spaced q-array (log-linear sampling)
+        # Ensure positive q_min for np.logspace
+        if q_min <= 0:
+            q_min = max(q_min, 1e-6)
+        q_array = np.logspace(np.log10(q_min), np.log10(q_max), num=num_points)
 
         return {
             "source": "smart_size_based",
@@ -1055,7 +1295,7 @@ class SyntheticDataTool(BaseTool):
 
         if any(word in desc_lower for word in ['sans', 'small angle', 'low q']):
             # SANS typically covers 0.01 - 1.0 Å⁻¹
-            q_array = np.linspace(0.01, 1.0, 120)  # 0.01 to 1.0
+            q_array = np.logspace(np.log10(0.01), np.log10(1.0), 120)  # log-spaced (log-linear) from 0.01 to 1.0
             return {
                 "source": "instrument_hint_sans",
                 "q_min": 0.01,
@@ -1065,7 +1305,8 @@ class SyntheticDataTool(BaseTool):
             }
         elif any(word in desc_lower for word in ['saxs', 'high q', 'wide angle']):
             # SAXS can go to higher q
-            q_array = np.linspace(0.01, 3.0, 120)  # 0.01 to ~3.0
+            # Use log-linear (log-spaced) q-array for SAXS to better sample decades in q
+            q_array = np.logspace(np.log10(0.01), np.log10(1.0), 120)
             return {
                 "source": "instrument_hint_saxs",
                 "q_min": 0.01,
@@ -1075,7 +1316,7 @@ class SyntheticDataTool(BaseTool):
             }
         else:
             # Default range
-            q_array = np.linspace(0.01, 1.0, 120)  # 0.01 to 1.0
+            q_array = np.logspace(np.log10(0.01), np.log10(1.0), 120)
             return {
                 "source": "default",
                 "q_min": 0.01,
@@ -1168,14 +1409,152 @@ class SyntheticDataTool(BaseTool):
 
         # Instrument-specific background levels
         if any(word in desc_lower for word in ['sans', 'neutron']):
-            return 0.0005  # Lower background for SANS
+            return 0.05  # Lower background for SANS
         elif any(word in desc_lower for word in ['saxs', 'x-ray', 'synchrotron']):
-            return 0.01   # Higher background for SAXS
+            return 0.1   # Higher background for SAXS
         elif any(word in desc_lower for word in ['solution', 'aqueous', 'buffer']):
-            return 0.001  # Medium background for solution samples
+            return 0.1  # Medium background for solution samples
 
         # Return None to use default
         return None
+
+
+class SLDCalculatorToolSchema(BaseModel):
+    """Schema for SLD Calculator Tool arguments"""
+    formula: str = Field(..., description="Molecular formula (e.g., 'H2O', 'D2O', 'C6H12O6') or compound name")
+    density: Optional[float] = Field(None, description="Mass density in g/cm³ (optional, defaults based on compound)")
+    wavelength: Optional[float] = Field(None, description="Neutron/x-ray wavelength in Å (optional, default: 6.0 for neutrons)")
+    is_neutron: bool = Field(True, description="True for neutron SLD, False for x-ray SLD (optional, default: True)")
+
+
+class SLDCalculatorTool(BaseTool):
+    """Tool for calculating neutron or x-ray SLD values using SasView's calculator"""
+    name: str = "sld_calculator_tool"
+    description: str = """
+    Calculates neutron or x-ray SLD (Scattering Length Density) for molecular formulas.
+    For SAS fitting applications, typically only the real part (sld_real) is used.
+
+    Usage: sld_calculator_tool(formula="H2O")  # Most minimal usage
+    Usage: sld_calculator_tool(formula="H2O", density=1.0, wavelength=6.0, is_neutron=True)
+
+    Parameters:
+    - formula (required): Molecular formula (e.g., 'H2O', 'D2O', 'C6H12O6') or compound name
+    - density (optional): Mass density in g/cm³ (defaults based on compound if not provided)
+    - wavelength (optional): Neutron/x-ray wavelength in Å (default: 6.0 for neutrons)
+    - is_neutron (optional): True for neutron SLD, False for x-ray SLD (default: True)
+
+    Returns:
+    - success: True/False
+    - result: Dict with SLD values (sld_real, sld_imag, etc.)
+    - formula: Input formula
+    - density: Used density
+
+    Note: For SAS fitting, extract and use only result['sld_real'] as the fixed SLD parameter.
+
+    Examples:
+    - Water: sld_calculator_tool(formula="H2O")
+    - Heavy water: sld_calculator_tool(formula="D2O")
+    - Custom density: sld_calculator_tool(formula="C6H12O6", density=1.56)
+    """
+    args_schema: type[BaseModel] = SLDCalculatorToolSchema
+
+    def _get_default_density(self, formula: str) -> float:
+        """Get reasonable default density for common compounds"""
+        # Convert common names to formulas and get densities
+        formula_upper = formula.upper()
+
+        # Common compound densities (g/cm³)
+        density_map = {
+            'H2O': 1.0,      # Water
+            'D2O': 1.1,      # Heavy water
+            'H2O2': 1.45,    # Hydrogen peroxide
+            'CH4': 0.42,     # Methane (liquid at -162°C)
+            'C2H6O': 0.79,   # Ethanol
+            'C6H12O6': 1.56,  # Glucose
+            'C8H8': 0.91,    # Styrene
+            'C6H6': 0.88,    # Benzene
+            'CH2O': 0.82,    # Formaldehyde
+            'NH3': 0.68,     # Ammonia (liquid)
+            'CO2': 1.98,     # Carbon dioxide (solid)
+            'N2': 0.81,      # Nitrogen (liquid)
+            'O2': 1.14,      # Oxygen (liquid)
+            'THF': 0.889,    # Tetrahydrofuran
+            'C4H8O': 0.889,  # Tetrahydrofuran (chemical formula)
+        }
+
+        # Check if we have a direct match
+        if formula_upper in density_map:
+            return density_map[formula_upper]
+
+        # For organic compounds (containing C), default to ~1.0-1.2
+        if 'C' in formula_upper:
+            return 1.1
+
+        # For inorganic compounds, default to ~1.5
+        return 1.5
+
+    def _normalize_formula(self, formula: str) -> str:
+        """Convert common compound names to chemical formulas"""
+        name_to_formula = {
+            'water': 'H2O',
+            'heavy water': 'D2O',
+            'deuterium oxide': 'D2O',
+            'ethanol': 'C2H6O',
+            'methanol': 'CH4O',
+            'glucose': 'C6H12O6',
+            'benzene': 'C6H6',
+            'styrene': 'C8H8',
+            'polystyrene': 'C8H8',  # Monomer unit
+            'ammonia': 'NH3',
+            'methane': 'CH4',
+            'carbon dioxide': 'CO2',
+            'hydrogen peroxide': 'H2O2',
+            'thf': 'C4H8O',         # Tetrahydrofuran
+            'tetrahydrofuran': 'C4H8O',
+        }
+
+        formula_lower = formula.lower().strip()
+        return name_to_formula.get(formula_lower, formula)
+
+    def _run(self, formula: str, density: float = None, wavelength: float = None, is_neutron: bool = True) -> Dict[str, Any]:
+        """Calculate SLD for given molecular formula with intelligent defaults"""
+        try:
+            if not SAS_TOOLS_AVAILABLE:
+                return {
+                    "success": False,
+                    "error": "SLD calculator not available - SAS tools not imported"
+                }
+
+            # Normalize formula (convert common names to chemical formulas)
+            normalized_formula = self._normalize_formula(formula)
+
+            # Use default density if not provided
+            if density is None:
+                density = self._get_default_density(normalized_formula)
+
+            # Use default wavelength if not provided
+            if wavelength is None:
+                wavelength = 6.0 if is_neutron else None
+
+            result = calculate_sld(normalized_formula, density, wavelength, is_neutron)
+
+            return {
+                "success": True,
+                "result": result,
+                "formula": normalized_formula,
+                "original_input": formula,
+                "density": density,
+                "wavelength": wavelength,
+                "is_neutron": is_neutron
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"SLD calculation failed: {str(e)}",
+                "formula": formula,
+                "density": density
+            }
 
 
 def create_data_generation_agent(api_key: str = None, model: str = None) -> Agent:
@@ -1191,7 +1570,6 @@ def create_data_generation_agent(api_key: str = None, model: str = None) -> Agen
         CRITICAL: You are an expert in unit conversions for SAS data:
         - SasView uses Angstroms (Å) for ALL length parameters
         - Always convert nm to Å by multiplying by 10 (e.g., 30nm = 300Å)
-        - Always convert μm to Å by multiplying by 10000 (e.g., 2μm = 20000Å)
         - When you see "25nm radius", use radius=250.0 in the parameters
         - When you see "100nm length", use length=1000.0 in the parameters
         - SLD values are in 10⁻⁶ Å⁻² units
@@ -1270,13 +1648,14 @@ def create_data_generation_task(sample_description: str, params: dict = None, q_
 # ========================================================================================
 
 class UnifiedSASAnalysisSystem:
-    """Multi-agent SAS analysis system with coordinator for task routing"""
+    """Streamlined SAS analysis system with intelligent routing"""
     def __init__(self, api_key: str = None, model: str = None):
         """Initialize the SAS analysis system with optional API configuration"""
         self.api_key = api_key
-        self.model = model
-        self.model_selector = create_model_selector_agent(api_key, model)
-        self.fitter = create_fitting_agent(api_key, model)
+        self.llm_model = model  # Changed from self.model to self.llm_model
+        # Only create the essential agents - model selection is now integrated into specialist agents
+        self.sld_calculator = create_sld_calculator_agent(api_key, model)
+        self.interactive_fitter = create_interactive_fitting_agent(api_key, model)
         self.data_generator = create_data_generation_agent(api_key, model)
         self.coordinator = create_coordinator_agent(api_key, model)
         self.rag_available = RAG_AVAILABLE
@@ -1329,7 +1708,7 @@ class UnifiedSASAnalysisSystem:
                 print("📝 No chat history provided, using original prompt")
 
             # Step 1: Use coordinator to determine intent
-            coordinator_task = create_coordinator_task(enhanced_prompt, output_folder, data_path, self.api_key, self.model)
+            coordinator_task = create_coordinator_task(enhanced_prompt, output_folder, data_path, self.api_key, self.llm_model)
             coordinator_crew = Crew(
                 agents=[self.coordinator],
                 tasks=[coordinator_task],
@@ -1342,16 +1721,94 @@ class UnifiedSASAnalysisSystem:
             # Debug: Print coordinator result
             print(f"🔍 Coordinator result: {str(coordinator_result)[:200]}...")
 
-            # Parse coordinator output
-            intent_match = re.search(
-                r"INTENT:\s*(generation|fitting)\s*\nSAMPLE_DESCRIPTION:\s*(.*?)\s*\nDATA_PATH:\s*(.*?)\s*\nPARAMETERS:\s*(.*?)(?:\n|$)",
-                str(coordinator_result), re.DOTALL
-            )
-            if not intent_match:
-                print(f"❌ Failed to parse coordinator output: {str(coordinator_result)}")
-                return {"success": False, "error": "Could not determine task intent from prompt"}
+            # Parse coordinator output with new SLD calculation support
+            try:
+                import re  # Ensure re module is available in function scope
+                coordinator_output = str(coordinator_result).strip()
+                print(f"🔍 Full coordinator output ({len(coordinator_output)} chars):")
+                print(f"'{coordinator_output}'")
 
-            intent, sample_description, data_path_str, params_str = intent_match.groups()
+                # Try multiple regex patterns to handle different formatting
+                patterns = [
+                    # Pattern 1: Standard format with potential spaces (with MODEL field)
+                    r"INTENT:\s*(system_introduction|sld_calculation|generation|fitting)\s*\n?\s*SAMPLE_DESCRIPTION:\s*(.*?)\s*\n?\s*DATA_PATH:\s*(.*?)\s*\n?\s*PARAMETERS:\s*(.*?)\s*\n?\s*MODEL:\s*(.*?)(?:\n|$)",
+                    # Pattern 2: More flexible line-by-line format (with MODEL field)
+                    r"INTENT:\s*(system_introduction|sld_calculation|generation|fitting).*?SAMPLE_DESCRIPTION:\s*(.*?).*?DATA_PATH:\s*(.*?).*?PARAMETERS:\s*(.*?).*?MODEL:\s*(.*?)(?:\n|$)",
+                    # Pattern 3: Fallback without MODEL field (for backward compatibility)
+                    r"INTENT:\s*(system_introduction|sld_calculation|generation|fitting)\s*\n?\s*SAMPLE_DESCRIPTION:\s*(.*?)\s*\n?\s*DATA_PATH:\s*(.*?)\s*\n?\s*PARAMETERS:\s*(.*?)(?:\n|$)",
+                    # Pattern 4: More flexible line-by-line format (without MODEL field)
+                    r"INTENT:\s*(system_introduction|sld_calculation|generation|fitting).*?SAMPLE_DESCRIPTION:\s*(.*?).*?DATA_PATH:\s*(.*?).*?PARAMETERS:\s*(.*?)(?:\n|$)",
+                ]
+
+                intent_groups = None
+                for i, pattern in enumerate(patterns):
+                    print(f"🔍 Trying pattern {i+1}...")
+                    intent_match = re.search(pattern, coordinator_output, re.DOTALL | re.IGNORECASE)
+                    if intent_match:
+                        intent_groups = intent_match.groups()
+                        print(f"✅ Pattern {i+1} matched successfully: {intent_groups}")
+                        break
+                    else:
+                        print(f"❌ Pattern {i+1} failed to match")
+
+                if not intent_groups:
+                    print("❌ No regex patterns matched. Trying line-by-line parsing...")
+
+                    # Try a more flexible parsing approach
+                    lines = coordinator_output.split('\n')
+                    intent = None
+                    sample_description = ""
+                    data_path = ""
+                    params = ""
+                    model = "auto"  # Default value
+
+                    for line in lines:
+                        line = line.strip()
+                        print(f"Processing line: '{line}'")
+                        if line.startswith('INTENT:'):
+                            intent = line.split(':', 1)[1].strip()
+                            print(f"Found intent: '{intent}'")
+                        elif line.startswith('SAMPLE_DESCRIPTION:'):
+                            sample_description = line.split(':', 1)[1].strip()
+                            print(f"Found sample description: '{sample_description}'")
+                        elif line.startswith('DATA_PATH:'):
+                            data_path = line.split(':', 1)[1].strip()
+                            print(f"Found data path: '{data_path}'")
+                        elif line.startswith('PARAMETERS:'):
+                            params = line.split(':', 1)[1].strip()
+                            print(f"Found parameters: '{params}'")
+                        elif line.startswith('MODEL:'):
+                            model = line.split(':', 1)[1].strip()
+                            print(f"Found model: '{model}'")
+
+                    if intent:
+                        print(f"✅ Line-by-line parsing successful: intent={intent}")
+                        intent_groups = (intent, sample_description, data_path, params, model)
+                    else:
+                        print(f"❌ All parsing methods failed for: {coordinator_output}")
+                        return {"success": False, "error": "Could not determine task intent from prompt"}
+
+                # Handle different pattern matches (with or without MODEL field)
+                if len(intent_groups) == 5:
+                    intent, sample_description, data_path_str, params_str, requested_model = intent_groups
+                    # Normalize model name (convert spaces to underscores, remove "model" suffix)
+                    if requested_model and requested_model != "auto":
+                        requested_model = requested_model.lower().replace(" ", "_").replace("_model", "")
+                elif len(intent_groups) == 4:
+                    intent, sample_description, data_path_str, params_str = intent_groups
+                    requested_model = "auto"  # Default if MODEL field not present
+                else:
+                    print(f"❌ Unexpected number of groups in intent_groups: {len(intent_groups)}")
+                    return {"success": False, "error": "Could not parse coordinator output properly"}
+
+                print(f"🎯 Parsed intent: '{intent}' for sample: '{sample_description}'")
+                print(f"🎯 Requested model: '{requested_model}'")
+
+            except Exception as e:
+                print(f"❌ Exception during parsing: {e}")
+                import traceback
+                traceback.print_exc()
+                return {"success": False, "error": f"Parsing error: {e}"}
             data_path = data_path_str.strip() if data_path_str.strip() != "none" else data_path
 
             # Handle parameters - try JSON first, fall back to plain text
@@ -1365,9 +1822,100 @@ class UnifiedSASAnalysisSystem:
 
             print(f"📋 Intent: {intent}, Sample: {sample_description}, Data: {data_path}, Params: {params}")
 
-            # Step 2: Route to appropriate workflow
-            if intent == "generation":
-                generation_task = create_data_generation_task(sample_description, params, folder_path=output_folder, api_key=self.api_key, model=self.model)
+            # Step 2: Route to appropriate specialist workflow
+            if intent == "system_introduction":
+                # Handle system introduction request
+                print("👋 Providing system introduction")
+
+                introduction_text = """
+🔬 **SAS Analysis System - Your AI Assistant for Small-Angle Scattering**
+
+I'm an intelligent SAS analysis system that can help you with three main capabilities:
+
+**1. 🧮 SLD Calculation**
+- Calculate scattering length density (SLD) from molecular formulas
+- Support for neutron and X-ray scattering
+- Examples: "Calculate SLD for H2O", "What's the SLD of D2O?"
+
+**2. 🧪 Synthetic Data Generation**
+- Generate synthetic SAS data for various particle models
+- Supports spheres, cylinders, flexible polymers, and more
+- Smart parameter estimation and optimal q-range selection
+- Examples: "Generate data for 25nm gold spheres", "Create synthetic cylinder data"
+
+**3. 📊 Data Fitting**
+- Fit experimental SAS data to physical models
+- Intelligent model selection using RAG-enhanced recommendations
+- Statistical analysis and parameter interpretation
+- Examples: "Fit my data to sphere model", "Analyze this CSV file"
+
+**How to use:**
+- Just describe what you want in natural language
+- Upload data files for fitting analysis
+- Ask for specific calculations or model recommendations
+
+**Ready to help with your SAS analysis! What would you like to do?**
+                """
+
+                return {
+                    "success": True,
+                    "task_type": "system_introduction",
+                    "results": introduction_text.strip(),
+                    "capabilities": ["sld_calculation", "data_generation", "data_fitting"],
+                    "rag_available": self.rag_available,
+                    "sas_tools_available": self.sas_tools_available
+                }
+
+            elif intent == "sld_calculation":
+                # Route to SLD Calculator Agent
+                print("🔬 Routing to SLD Calculator Agent")
+
+                # Extract formula from sample description, let tool handle density defaults
+                formula = sample_description  # Use full description, tool will normalize
+                density = None  # Let tool use intelligent defaults
+
+                # Try to extract specific formula if present
+                import re
+                if sample_description:
+                    # Look for chemical formulas (e.g., H2O, D2O, C6H12O6)
+                    formula_match = re.search(r'\b([A-Z][a-z]?\d*)+\b', sample_description)
+                    if formula_match:
+                        formula = formula_match.group(0)
+
+                    # Extract density if specifically mentioned in sample description
+                    density_match = re.search(r'density[:\s]*([0-9.]+)', sample_description, re.IGNORECASE)
+                    if density_match:
+                        density = float(density_match.group(1))
+
+                # Also check parameters string for density information
+                if params and not density:
+                    density_match = re.search(r'density[:\s]*([0-9.]+)', params, re.IGNORECASE)
+                    if density_match:
+                        density = float(density_match.group(1))
+                        print(f"🔍 Extracted density from parameters: {density} g/cm³")
+
+                # Create SLD calculation task
+                sld_task = create_sld_calculation_task(formula, density, sample_description, self.api_key, self.llm_model)
+                sld_crew = Crew(
+                    agents=[create_sld_calculator_agent(self.api_key, self.llm_model)],
+                    tasks=[sld_task],
+                    process=Process.sequential,
+                    verbose=True,
+                    name="SAS_SLD_Calculator"
+                )
+                results = sld_crew.kickoff()
+
+                return {
+                    "success": True,
+                    "task_type": "sld_calculation",
+                    "results": str(results),
+                    "formula": formula,
+                    "density": density,
+                    "sample_description": sample_description
+                }
+
+            elif intent == "generation":
+                generation_task = create_data_generation_task(sample_description, params, folder_path=output_folder, api_key=self.api_key, model=self.llm_model)
                 generation_crew = Crew(
                     agents=[self.data_generator],
                     tasks=[generation_task],
@@ -1409,53 +1957,22 @@ class UnifiedSASAnalysisSystem:
                 return result_info
 
             elif intent == "fitting":
+                # Route to Interactive Fitting Agent
+                print("📊 Routing to Interactive Fitting Agent")
+
                 if not data_path or not os.path.exists(data_path):
                     return {"success": False, "error": f"Data file not found: {data_path}"}
 
-                # Extract model information from chat history if available
-                previous_model_info = None
-                if chat_history and len(chat_history) > 0:
-                    try:
-                        # Look for previous fitting results in chat history
-                        for msg in reversed(chat_history):  # Check most recent first
-                            if isinstance(msg, (list, tuple)) and len(msg) >= 2:
-                                _, agent_response = msg
-                                if isinstance(agent_response, dict) and agent_response.get('task_type') == 'fitting':
-                                    if 'sample_description' in agent_response:
-                                        previous_model_info = agent_response['sample_description']
-                                        print(f"🔍 Found previous model from history: {previous_model_info}")
-                                        break
-                                elif isinstance(agent_response, str):
-                                    # Check if response contains model information
-                                    model_match = re.search(r'Model.*?:\s*(\w+)', str(agent_response), re.IGNORECASE)
-                                    if model_match:
-                                        previous_model_info = model_match.group(1)
-                                        print(f"🔍 Extracted model from history: {previous_model_info}")
-                                        break
-                    except Exception as e:
-                        print(f"⚠️ Could not extract model info from history: {e}")
-
-                # Use previous model info if available, otherwise use current sample description
-                model_context = previous_model_info if previous_model_info else sample_description
-
-                # Create collaborative tasks for model selection and fitting
-                selection_task = create_model_selection_task(model_context, output_folder, self.api_key, self.model)
-
-                # Combine original user prompt with current parameter guidance
-                combined_prompt = prompt
-                if previous_model_info and previous_model_info != sample_description:
-                    combined_prompt = f"Using {previous_model_info} model. {prompt}"
-
-                fitting_task = create_fitting_task(data_path, "from_selector", model_context, output_folder, self.api_key, self.model, original_prompt=combined_prompt)
-
-                analysis_crew = Crew(
-                    agents=[self.model_selector, self.fitter],
-                    tasks=[selection_task, fitting_task],
+                # Use the new interactive fitting task
+                fitting_task = create_interactive_fitting_task(data_path, sample_description, params_str, requested_model, self.api_key, self.llm_model)
+                fitting_crew = Crew(
+                    agents=[create_interactive_fitting_agent(self.api_key, self.llm_model)],
+                    tasks=[fitting_task],
                     process=Process.sequential,
                     verbose=True,
-                    name="SAS_Model_Analyzer"
+                    name="SAS_Interactive_Fitter"
                 )
-                results = analysis_crew.kickoff()
+                results = fitting_crew.kickoff()
 
                 # Extract structured information from the CrewAI result
                 result_info = {

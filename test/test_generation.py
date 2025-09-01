@@ -24,10 +24,6 @@ import numpy as np
 project_root = Path(__file__).parent.parent  # Go up one level since we're in test/
 sys.path.insert(0, str(project_root))
 
-# TODO: improve ai test case prompt for better results
-# TODO: improve q range in both tbasic test and ai test cases
-
-
 def test_generation():
     """Test synthetic data generation with various models, parameters, and q-ranges"""
     print("🧪 Testing Comprehensive Generation")
@@ -136,9 +132,9 @@ def test_generation():
     return results
 
 
-def test_crewai_generation():
+def test_generation_sas_tool():
     """Test CrewAI-enhanced generation with natural language descriptions including q-range specifications"""
-    print("\n🤖 Testing CrewAI Enhanced Generation with Q-Range Specifications")
+    print("\n🤖 Testing CrewAI Enhanced Generation")
     print("=" * 60)
 
     try:
@@ -203,77 +199,150 @@ def test_crewai_generation():
         return {"ai_tests": "not_available"}
 
 
-def generate_summary_report(generation_results, ai_results):
-    """Generate a comprehensive summary report"""
-    print("\n" + "=" * 80)
-    print("📊 COMPREHENSIVE GENERATION TEST SUMMARY")
-    print("=" * 80)
 
-    # Generation test summary (both basic and enhanced)
-    generation_success = sum(1 for r in generation_results.values() if r.get("success"))
-    print(f"\n🧪 Generation Tests: {generation_success}/{len(generation_results)} successful")
+def test_end_to_end_generation():
+    """Test the full CrewAI agent system using UnifiedSASAnalysisSystem.analyze_data()"""
+    print("\n🤖 Testing Full CrewAI Agent System Integration")
+    print("=" * 60)
 
-    # Categorize by test type
-    basic_tests = {k: v for k, v in generation_results.items() if not v.get("q_custom", False)}
-    enhanced_tests = {k: v for k, v in generation_results.items() if v.get("q_custom", False)}
+    try:
+        from crewai_sas_agents import UnifiedSASAnalysisSystem
 
-    print(f"   📋 Basic models (default q-range): {sum(1 for r in basic_tests.values() if r.get('success'))}/{len(basic_tests)}")
-    for name, result in basic_tests.items():
-        status = "✅" if result.get("success") else "❌"
-        bg_info = f"(bg={result.get('parameters', {}).get('background', 'N/A')})"
-        print(f"      {status} {name}: {result.get('use_case', 'N/A')} {bg_info}")
+        # Initialize the unified system
+        system = UnifiedSASAnalysisSystem()
 
-    print(f"   🚀 Enhanced models (custom q-range): {sum(1 for r in enhanced_tests.values() if r.get('success'))}/{len(enhanced_tests)}")
-    for name, result in enhanced_tests.items():
-        status = "✅" if result.get("success") else "❌"
-        bg_info = f"(bg={result.get('parameters', {}).get('background', 'N/A')})"
-        print(f"      {status} {name}: {result.get('use_case', 'N/A')} {bg_info}")
+        # Test cases for the unified system with various prompts
+        test_prompts = [
+            {
+                "name": "polymer_chains",
+                "prompt": "Generate SANS data for flexible polymer chains with length 200A and persistence length 50A",
+                "expected_task": "generation",
+            },
+            {
+                "name": "lamellar_paracrystal",
+                "prompt": "Create synthetic data for lamellar stak paracrystal with sigma_d 0.1 and q range (0.01, 1)",
+                "expected_task": "generation",
+            },
+            {
+                "name": "guinier",
+                "prompt": "Generate scattering data for guinier model for radius of gyration 30A over q range (0.01, 1)",
+                "expected_task": "generation",
+            },
+            {
+                "name": "ellipsoid",
+                "prompt": "Generate scattering data of ellipsoid",
+                "expected_task": "generation",
+            },
+            {
+                "name": "spherical_nanoparticles",
+                "prompt": "Generate synthetic data for spherical colloidal particles of diameter 100A",
+                "expected_task": "generation",
+            },
+            {
+                "name": "crystal",
+                "prompt": "Generate synthetic data for cubic lattice with paracrystalline distortion with q range (0.005, 0.5)",
+                "expected_task": "generation",
+            },
 
-    # AI generation summary
-    if isinstance(ai_results, dict) and ai_results.get("ai_tests") != "not_available":
-        ai_success = sum(1 for r in ai_results.values() if r.get("success"))
-        print(f"\n🤖 CrewAI Enhanced Tests: {ai_success}/{len(ai_results)} successful")
-        for test, result in ai_results.items():
-            status = "✅" if result.get("success") else "❌"
-            model = result.get("model_used", "N/A")
-            bg_info = f"(bg={result.get('background', 'auto')})"
-            q_info = result.get('q_info', {}).get('source', 'default')
-            print(f"   {status} {test}: Model = {model}, Q-range = {q_info} {bg_info}")
-    else:
-        print("\n🤖 CrewAI Enhanced Tests: Not available")
+        ]
 
-    # Overall assessment
-    total_tests = len(generation_results)
-    if isinstance(ai_results, dict) and ai_results.get("ai_tests") != "not_available":
-        total_tests += len(ai_results)
+        unified_results = {}
+        output_folder = "test/test_data/generation"
 
-    print("\n🎯 Overall Assessment:")
-    print(f"   Total test scenarios: {total_tests}")
-    print("   Background handling: ✅ Integrated into params (tested across all models)")
-    print("   Q-range flexibility: ✅ Both default and custom q-ranges tested")
-    print("   Model variety: ✅ 4 essential particle types covered")
-    print("   Realistic scenarios: ✅ SANS/SAXS conditions tested")
-    print("   AI integration: ✅ Natural language to model parameters with q-range specs")
+        for test_case in [test_prompts[1]]:
+            print(f"\n📋 Testing: {test_case['name']}")
+            print(f"   Prompt: {test_case['prompt']}")
+            print(f"   Expected: {test_case['expected_task']} task")
 
-    print("\n📁 Test outputs saved to: test/test_data/")
-    print("\n🎉 Comprehensive testing complete!")
+            try:
+                # Call the unified system with the test prompt
+                result = system.analyze_data(
+                    prompt=test_case["prompt"],
+                    output_folder=output_folder
+                )
+
+                if result.get("success"):
+                    unified_results[test_case["name"]] = {
+                        "success": True,
+                        "task_type": result.get("task_type"),
+                        "model_used": result.get("model_used"),
+                        "csv_path": result.get("csv_path"),
+                        "plot_file": result.get("plot_file"),
+                        "rag_enhanced": result.get("rag_enhanced"),
+                        "results_summary": str(result.get("results", ""))[:200] + "..." if result.get("results") else ""
+                    }
+
+                    print(f"✅ {test_case['name']}: Success")
+                    print(f"   Task type: {result.get('task_type', 'Unknown')}")
+                    print(f"   Model: {result.get('model_used', 'Auto-selected')}")
+
+                    if result.get("csv_path"):
+                        print(f"   CSV: {result['csv_path']}")
+                    if result.get("plot_file"):
+                        print(f"   Plot: {result['plot_file']}")
+
+                    print(f"   RAG Enhanced: {result.get('rag_enhanced', False)}")
+
+                else:
+                    unified_results[test_case["name"]] = {
+                        "success": False,
+                        "error": result.get("error", "Unknown error"),
+                        "task_type": result.get("task_type")
+                    }
+                    print(f"❌ {test_case['name']}: Failed - {result.get('error', 'Unknown error')}")
+
+            except Exception as e:
+                unified_results[test_case["name"]] = {
+                    "success": False,
+                    "error": str(e),
+                    "exception": True
+                }
+                print(f"❌ {test_case['name']}: Exception - {e}")
+
+        # Summary of results
+        print("\n📊 Unified System Test Summary")
+        print("=" * 50)
+
+        successful_tests = sum(1 for result in unified_results.values() if result.get("success"))
+        total_tests = len(unified_results)
+
+        print(f"Successful tests: {successful_tests}/{total_tests}")
+        print(f"Success rate: {successful_tests/total_tests*100:.1f}%")
+
+        # Group results by task type
+        task_types = {}
+        for name, result in unified_results.items():
+            task_type = result.get("task_type", "unknown")
+            if task_type not in task_types:
+                task_types[task_type] = []
+            task_types[task_type].append((name, result.get("success", False)))
+
+        print("\nResults by task type:")
+        for task_type, tests in task_types.items():
+            successful = sum(1 for _, success in tests if success)
+            total = len(tests)
+            print(f"  {task_type}: {successful}/{total} successful")
+
+        return unified_results
+
+    except ImportError as e:
+        print(f"⚠️  UnifiedSASAnalysisSystem not available: {e}")
+        return {"unified_tests": "not_available"}
 
 
 def main():
     """Run comprehensive SAS generation testing suite"""
     print("COMPREHENSIVE SAS SYNTHETIC DATA GENERATION TEST SUITE")
     print("=" * 80)
-    print("🔬 Testing: Unified Generation + CrewAI Integration")
-    print("📋 Background and q-range testing integrated across all test types")
-    print()
+    # Run all test suites
+    print("🔄 Running Direct Generation Tests...")
+    #basic_results = test_generation()
 
-    # Run streamlined test suites
-    generation_results = test_generation()
-    ai_results = test_crewai_generation()
+    print("\n🔄 Running CrewAI Tool Tests...")
+    #crewai_results = test_generation_sas_tool()
 
-    # Generate comprehensive summary
-    generate_summary_report(generation_results, ai_results)
-
+    print("\n🔄 Running Full Unified System Tests...")
+    unified_results = test_end_to_end_generation()
 
 if __name__ == "__main__":
     main()

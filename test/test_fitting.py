@@ -30,7 +30,7 @@ def generate_test_data():
         },
         "cylinder_test": {
             "model": "cylinder",
-            "params": {"radius": 20.0, "length": 400.0,  "background": 0.01},
+            "params": {"radius": 20.0, "length": 400.0, "background": 0.01},
             "q_values": np.linspace(0.01, 0.5, 200).tolist()  # 0.01 to ~3.16, 120 points (SAXS-like)
         },
         "flexible_cylinder_test": {
@@ -516,6 +516,74 @@ def test_crewai_collaborative_analysis():
         return {"error": str(e)}
 
 
+def test_end_to_end_fitting():
+    """Test the full CrewAI agent system using UnifiedSASAnalysisSystem.analyze_data() for fitting tasks"""
+    print("\n🤖 Testing Full CrewAI Agent System Integration - Fitting")
+    print("=" * 60)
+
+    try:
+        from crewai_sas_agents import UnifiedSASAnalysisSystem
+
+        # Initialize the unified system
+        system = UnifiedSASAnalysisSystem()
+
+        # Test cases for the unified system with fitting tasks
+        test_cases = [
+            {
+                "name": "hard_colloids_fitting",
+                "data_file": "test/test_data/fitting/hard_colloids.txt",
+                "prompt": "fit this scattering data using sphere model, the solvent is D2O, and the sample sld is about 1",
+                "expected_task": "fitting",
+            },
+            {
+                "name": "ladder_polymer_fitting",
+                "data_file": "test/test_data/fitting/ladder_polymer.txt",
+                "prompt": "fit this scattering data using flexible cylinder model, the solvent is tetrahydrofuran, and sample is C15H14 polymer, find sld for both before fitting, the kuhn length is about 10, length is about 100",
+            },
+        ]
+        #test_cases = [test_cases[1]]
+
+        fitting_results = {}
+
+        for test_case in test_cases[:]:
+            print(f"\n📋 Testing: {test_case['name']}")
+            print(f"   Data file: {test_case['data_file']}")
+            print(f"   Prompt: {test_case['prompt']}")
+
+            try:
+                if not os.path.exists(test_case["data_file"]):
+                    fitting_results[test_case["name"]] = {
+                        "success": False,
+                        "error": f"Data file not found: {test_case['data_file']}"
+                    }
+                    print(f"❌ {test_case['name']}: Data file not found")
+                    continue
+
+                # Call the unified system with the test prompt and data file
+                result = system.analyze_data(
+                    prompt=test_case["prompt"],
+                    data_path=test_case["data_file"],
+                    output_folder="./test/test_data/fitting",
+                )
+
+                # Record success and result
+                fitting_results[test_case["name"]] = {
+                    "success": True,
+                    "result": result
+                }
+                print(f"   ✅ {test_case['name']}: analyze_data completed")
+
+            except Exception as e:
+                fitting_results[test_case["name"]] = {
+                    "success": False,
+                    "error": str(e)
+                }
+                print(f"   ❌ {test_case['name']}: Exception during analysis: {e}")
+        return fitting_results
+    except ImportError as e:
+        print(f"❌ Unified system not available: {e}")
+        return {"error": "Unified system not available"}
+
 def main():
     """Main test runner"""
     print("SAS DATA FITTING TEST SUITE")
@@ -528,68 +596,22 @@ def main():
     results = {}
 
     # Test 1: Basic fitting functionality
-    results['basic_fitting'] = test_basic_fitting()
+    print("\n🚀 Running basic fitting test...")
+    #results['basic_fitting'] = test_basic_fitting()
 
     # Test 2: RAG-enhanced fitting workflow
-    results['rag_fitting'] = test_rag_enhanced_fitting()
+    # results['rag_fitting'] = test_rag_enhanced_fitting()
 
     # Test 3: Model selection accuracy
-    results['model_selection'] = test_model_selection_accuracy()
+    # results['model_selection'] = test_model_selection_accuracy()
 
     # Test 4: Full CrewAI collaborative analysis
-    results['crewai_analysis'] = test_crewai_collaborative_analysis()
+    # results['crewai_analysis'] = test_crewai_collaborative_analysis()
 
-    # Summary
-    print("\n" + "=" * 60)
-    print("📊 TEST SUMMARY")
-    print("=" * 60)
+    # Test 5: End-to-end fitting with unified system
+    test_end_to_end_fitting()
 
-    # Basic fitting summary
-    basic_results = results['basic_fitting']
-    if isinstance(basic_results, dict) and 'error' not in basic_results:
-        successful = sum(1 for r in basic_results.values() if isinstance(r, dict) and r.get('overall_success'))
-        total = len(basic_results)
-        print(f"Basic Fitting: {successful}/{total} datasets fitted successfully")
-
-        # Show detailed results
-        for dataset, result in basic_results.items():
-            if isinstance(result, dict) and result.get('success'):
-                r_squared = result.get('r_squared', 0)
-                quality = result.get('fit_quality', 'Unknown')
-                overall = "✅ PASS" if result.get('overall_success') else "⚠️ MARGINAL"
-                print(f"  {overall} {dataset}: R² = {r_squared:.4f} ({quality})")
-            else:
-                print(f"  ❌ {dataset}: FAILED")
-    else:
-        print(f"Basic Fitting: Not available ({basic_results.get('error', 'Unknown error')})")
-    rag_results = results['rag_fitting']
-    if isinstance(rag_results, dict) and 'error' not in rag_results:
-        successful = sum(1 for r in rag_results.values() if isinstance(r, dict) and r.get('success'))
-        total = len(rag_results)
-        print(f"RAG-Enhanced Fitting: {successful}/{total} workflows successful")
-    elif isinstance(rag_results, dict) and 'error' in rag_results:
-        print(f"RAG-Enhanced Fitting: Not available ({rag_results['error']})")
-
-    # Model selection accuracy
-    selection_results = results['model_selection']
-    if isinstance(selection_results, dict) and 'accuracy' in selection_results:
-        accuracy = selection_results['accuracy']
-        print(f"Model Selection Accuracy: {accuracy:.1f}%")
-    elif isinstance(selection_results, dict) and 'error' in selection_results:
-        print(f"Model Selection: Not available ({selection_results['error']})")
-
-    # CrewAI collaborative analysis
-    crewai_results = results['crewai_analysis']
-    if isinstance(crewai_results, dict) and 'success_rate' in crewai_results:
-        success_rate = crewai_results['success_rate'] * 100
-        successful = crewai_results['successful_tests']
-        total = crewai_results['total_tests']
-        print(f"CrewAI Collaborative Analysis: {successful}/{total} workflows successful ({success_rate:.1f}%)")
-    elif isinstance(crewai_results, dict) and 'error' in crewai_results:
-        print(f"CrewAI Analysis: Not available ({crewai_results['error']})")
-
-    print("\n🎯 Fitting testing complete!")
-    print("📁 Test files saved to: test/test_data/fitting/")
+    return results
 
 
 if __name__ == "__main__":

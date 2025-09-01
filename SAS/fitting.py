@@ -151,7 +151,7 @@ def get_model_parameters(model_name, model_config=None, param_constraints=None):
     return initial_params, bounds, param_names
 
 
-def sasview_fit_with_bumps(csv_path, model_name, param_constraints=None, model_config_path=None, plot_label=None, output_dir=None):
+def sasview_fit_with_bumps(csv_path, model_name, param_constraints=None, fixed_params=None, model_config_path=None, plot_label=None, output_dir=None):
     """
     Fit SAS data using SasView models with Bumps optimization (the proper SasView way)
 
@@ -159,6 +159,7 @@ def sasview_fit_with_bumps(csv_path, model_name, param_constraints=None, model_c
         csv_path: Path to CSV file with q,I columns
         model_name: SasView model name (e.g., 'sphere', 'cylinder')
         param_constraints: User-specified parameter constraints
+        fixed_params: Dictionary of parameters to fix during fitting (e.g., {"sld": 1.0})
         model_config_path: Optional path to model configuration JSON file
         plot_label: Optional label to append to plot filename
         output_dir: Optional directory to save plots (defaults to same dir as data)
@@ -216,6 +217,9 @@ def sasview_fit_with_bumps(csv_path, model_name, param_constraints=None, model_c
         if not param_names:
             return {"error": f"Could not determine parameters for model {model_name}"}
 
+        # Create a copy of param_names to track which parameters will be fitted
+        fitting_param_names = param_names.copy()
+
         print(f"Fitting parameters: {param_names}")
         print(f"Initial parameters: {initial_params}")
 
@@ -223,6 +227,17 @@ def sasview_fit_with_bumps(csv_path, model_name, param_constraints=None, model_c
         for param_name in param_names:
             if hasattr(model, param_name):
                 param = getattr(model, param_name)
+
+                # Apply fixed parameters first (highest priority)
+                if fixed_params and param_name in fixed_params:
+                    fixed_value = fixed_params[param_name]
+                    param.value = fixed_value
+                    param.vary = False  # Fix the parameter - do not fit
+                    # Remove from fitting_param_names to ensure it's not included in fitting
+                    if param_name in fitting_param_names:
+                        fitting_param_names.remove(param_name)
+                    print(f"  {param_name}: FIXED at {fixed_value}")
+                    continue
 
                 # Apply user constraints if provided
                 if param_constraints and param_name in param_constraints:
@@ -249,6 +264,10 @@ def sasview_fit_with_bumps(csv_path, model_name, param_constraints=None, model_c
 
                 print(f"  {param_name}: {param.value} [{lower}, {upper}]")
 
+        # Update param_names to only include parameters that will be fitted
+        param_names = fitting_param_names
+        print(f"Parameters to be fitted: {param_names}")
+
         # Create experiment
         experiment = Experiment(data=data, model=model)
         problem = FitProblem(experiment)
@@ -265,9 +284,10 @@ def sasview_fit_with_bumps(csv_path, model_name, param_constraints=None, model_c
         # Use Bumps' Levenberg-Marquardt optimizer (best for SAS data)
         result = fit(problem, method='lm', steps=1000, verbose=False)
 
-        # Get fitted parameters
+        # Get fitted parameters (include both fitted and fixed parameters)
         fitted_params = {}
-        for param_name in param_names:
+        all_param_names = list(initial_params.keys())  # Get all parameter names including fixed ones
+        for param_name in all_param_names:
             if hasattr(model, param_name):
                 param = getattr(model, param_name)
                 fitted_params[param_name] = float(param.value)
@@ -297,7 +317,7 @@ def sasview_fit_with_bumps(csv_path, model_name, param_constraints=None, model_c
 
         # Reduced chi-squared
         n_data = len(intensity_data)
-        n_params = len(param_names)
+        n_params = len(fitting_param_names)  # Use only parameters that were actually fitted
         chi_squared_reduced = chi_squared / (n_data - n_params) if n_data > n_params else chi_squared
 
         # Relative RMSE
@@ -319,11 +339,14 @@ def sasview_fit_with_bumps(csv_path, model_name, param_constraints=None, model_c
                      elinewidth=1, capsize=2, capthick=1)
         # Plot fitted intensity on top of the raw data by giving it a higher z-order
         ax1.plot(q_data, fitted_intensity, "-", label="Fit", linewidth=1.5, color="red", zorder=10)
-        ax1.set_xlabel("q (1/Å)", fontsize=9)
-        ax1.set_ylabel("I(q)", fontsize=9)
+        ax1.set_xlabel("q (1/Å)", fontsize=9, labelpad=0)
+        ax1.set_ylabel("I(q)", fontsize=9, labelpad=0)
+        ax1.set_xscale("log")  # Use log scale for q-axis
         ax1.set_yscale("log")
-        #ax1.set_title(f"SAS Fit: {model_name} (R²={r_squared:.3f}, RMSE={relative_rmse:.1f}%) - Bumps")
+        # ax1.set_title(f"SAS Fit: {model_name} (R²={r_squared:.3f}, RMSE={relative_rmse:.1f}%) - Bumps")
         ax1.grid(True, alpha=0.3)
+        ax1.legend(loc="upper right", fontsize=7)
+        ax1.tick_params(axis='both', which='both', direction="in", labelsize=7)
 
         # Add fitted parameters annotation
         param_text_lines = []
@@ -345,10 +368,10 @@ def sasview_fit_with_bumps(csv_path, model_name, param_constraints=None, model_c
         param_text = "\n".join(param_text_lines)
 
         # Add parameter box in upper right corner
-        ax1.text(0.98, 0.98, f"{param_text}",
+        ax1.text(0.05, 0.05, f"{param_text}",
                  transform=ax1.transAxes,
-                 verticalalignment='top',
-                 horizontalalignment='right',
+                 verticalalignment='bottom',
+                 horizontalalignment='left',
                  bbox=dict(boxstyle="round,pad=0.5", facecolor="lightblue", alpha=0.8),
                  fontsize=5) #, family='monospace')
 
@@ -356,9 +379,10 @@ def sasview_fit_with_bumps(csv_path, model_name, param_constraints=None, model_c
         residuals_norm = residuals / error_data
         ax2.semilogx(q_data, residuals_norm, "o", markersize=3, alpha=0.7)
         ax2.axhline(y=0, color="red", linestyle="--", alpha=0.7)
-        ax2.set_xlabel("q (1/Å)", fontsize=9)
-        ax2.set_ylabel("Normalized Residuals", fontsize=9)
+        ax2.set_xlabel("q (1/Å)", fontsize=9, labelpad=0)
+        ax2.set_ylabel("Normalized Residuals", fontsize=9, labelpad=0)
         ax2.grid(True, alpha=0.3)
+        ax2.tick_params(axis='both', which='both', direction="in", labelsize=7)
 
         plt.tight_layout()
 

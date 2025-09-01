@@ -15,22 +15,16 @@ def get_model_info(model_name):
     """Get detailed information about a specific model"""
     try:
         model = load_model(model_name)
-        info = {
-            'name': model_name,
-            'title': model.info.title,
-            'description': model.info.description,
-            'parameters': {},
-            'category': getattr(model.info, 'category', 'Unknown')
-        }
+        info = {"name": model_name, "title": model.info.title, "description": model.info.description, "parameters": {}, "category": getattr(model.info, "category", "Unknown")}
 
         # Get parameter information
         for param in model.info.parameters.kernel_parameters:
-            info['parameters'][param.name] = {
-                'name': param.name,
-                'units': param.units,
-                'default': param.default,
-                'limits': getattr(param, 'limits', None),
-                'description': getattr(param, 'description', '')
+            info["parameters"][param.name] = {
+                "name": param.name,
+                "units": param.units,
+                "default": param.default,
+                "limits": getattr(param, "limits", None),
+                "description": getattr(param, "description", ""),
             }
 
         return info
@@ -53,7 +47,7 @@ def get_model_defaults(model_name):
             params[param.name] = param.default
 
         # Add structure factor parameters if they exist
-        if hasattr(model.info.parameters, 'structure_factor') and model.info.parameters.structure_factor:
+        if hasattr(model.info.parameters, "structure_factor") and model.info.parameters.structure_factor:
             for param in model.info.parameters.structure_factor_parameters:
                 params[param.name] = param.default
 
@@ -62,7 +56,7 @@ def get_model_defaults(model_name):
     except Exception as e:
         print(f"Warning: Could not get defaults for model '{model_name}': {e}")
         # Fallback to basic sphere-like parameters for unknown models
-        return {"radius": 50, "sld": 1, "sld_solvent": 0, "background": 0.001}
+        return {"radius": 50, "sld": 1, "sld_solvent": 0, "background": 0.01}
 
 
 def generate_sasview_data(model_name, params=None, output_folder="data", noise_level=0.02, plot=True, include_uncertainty=True, q_values=None):
@@ -72,7 +66,7 @@ def generate_sasview_data(model_name, params=None, output_folder="data", noise_l
     Args:
         model_name: Any valid SasView model name (e.g., 'sphere', 'hayter_msa', 'core_shell_sphere')
         params: Model parameters dict. If None, uses model's default values.
-                Include 'background' in params to set background level (default: 0.001)
+                Include 'background' in params to set background level (default: 0.01)
         output_folder: Output directory for CSV and plots
         noise_level: Gaussian noise level as fraction (0.02 = 2% noise)
         plot: Whether to generate and save a plot
@@ -89,8 +83,8 @@ def generate_sasview_data(model_name, params=None, output_folder="data", noise_l
         params = get_model_defaults(model_name)
 
     # Ensure background parameter is included in params with realistic default
-    if 'background' not in params:
-        params['background'] = 0.001  # Typical background level
+    if "background" not in params:
+        params["background"] = 0.1  # Typical background level
 
     print(f"Using background level: {params['background']:.4f}")
 
@@ -131,12 +125,10 @@ def generate_sasview_data(model_name, params=None, output_folder="data", noise_l
     # Save to CSV
     csv_path = os.path.join(output_folder, f"synthetic_{model_name}.csv")
     if include_uncertainty:
-        np.savetxt(csv_path, np.column_stack((q, intensity_noisy, uncertainty)),
-                   delimiter=",", header="q,I,dI", comments='#')
+        np.savetxt(csv_path, np.column_stack((q, intensity_noisy, uncertainty)), delimiter=",", header="q,I,dI", comments="#")
         print("Saved data with uncertainties: q, I(q), dI columns")
     else:
-        np.savetxt(csv_path, np.column_stack((q, intensity_noisy)),
-                   delimiter=",", header="q,I", comments='#')
+        np.savetxt(csv_path, np.column_stack((q, intensity_noisy)), delimiter=",", header="q,I", comments="#")
         print("Saved data without uncertainties: q, I(q) columns")
 
     # Generate plot if requested
@@ -145,31 +137,31 @@ def generate_sasview_data(model_name, params=None, output_folder="data", noise_l
 
         if include_uncertainty and noise_level > 0:
             # Plot with error bars
-            error_indices = np.arange(0, len(q), len(q)//50)  # Show ~50 error bars
+            error_indices = np.arange(0, len(q), len(q) // 50)  # Show ~50 error bars
             plt.plot(q, intensity_noisy, "o", markersize=3, alpha=0.7, label=f"Synthetic {model_name} data")
-            plt.errorbar(q[error_indices], intensity_noisy[error_indices],
-                         yerr=uncertainty[error_indices], fmt='none', alpha=0.5, capsize=2)
+            plt.errorbar(q[error_indices], intensity_noisy[error_indices], yerr=uncertainty[error_indices], fmt="none", alpha=0.5, capsize=2)
             if noise_level > 0:
                 plt.plot(q, intensity_clean, "-", lw=1, alpha=1, label="Clean data")
         else:
             plt.plot(q, intensity_noisy, "o-", lw=1, markersize=2, label=f"Synthetic {model_name} data")
 
-        plt.xlabel("q (1/Å)", fontsize=9)
-        plt.ylabel("I(q)", fontsize=9)
+        plt.xlabel("q (1/Å)", fontsize=9, labelpad=0)
+        plt.ylabel("I(q)", fontsize=9, labelpad=0)
         plt.yscale("log")
-        #plt.title(f"Synthetic {model_name} Scattering Data")
+        plt.xscale("log")
+        plt.tick_params(axis="both", which="both", direction="in", labelsize=7)
+        # plt.title(f"Synthetic {model_name} Scattering Data")
         plt.grid(True, alpha=0.3)
-        #plt.legend()
+        # plt.legend()
 
         # Add parameter info with model name
-        param_text = f"Model: {model_name}\n" + "\n".join([f"{k}: {v:.3g}" if isinstance(v, (int, float)) else f"{k}: {v}"
-                                                          for k, v in params.items()])
-        plt.text(0.6, 0.98, f"{param_text}",
-                 transform=plt.gca().transAxes, verticalalignment="top",
-                 bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8), fontsize=5)
+        param_text = f"{model_name}\n" + "\n".join([f"{k}: {v:.3g}" if isinstance(v, (int, float)) else f"{k}: {v}" for k, v in params.items()])
+        #plt.text(0.05, 0.05, f"{param_text}", transform=plt.gca().transAxes, verticalalignment="bottom", horizontalalignment="left", bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8), fontsize=7) #, zorder=0)
+        plt.text(0.98, 0.98, f"{param_text}", transform=plt.gca().transAxes, verticalalignment="top", horizontalalignment="right", bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8), fontsize=7) #, zorder=0)
 
         plot_path = os.path.join(output_folder, f"synthetic_{model_name}_plot.png")
-        plt.savefig(plot_path, dpi=150, bbox_inches="tight")
+        plt.tight_layout()
+        plt.savefig(plot_path, dpi=300, bbox_inches="tight")
         plt.close()
         print(f"Plot saved to: {plot_path}")
 
@@ -189,7 +181,7 @@ def generate_synthetic_data(model_name="sphere", params=None, output_folder="dat
         if params is None:
             params = {}
         params = params.copy()  # Don't modify the original dict
-        params['background'] = background
+        params["background"] = background
 
     return generate_sasview_data(model_name, params, output_folder, noise_level, plot, include_uncertainty, q_values)
 
@@ -204,7 +196,7 @@ def generate_multiple_synthetic_datasets(models=None, output_folder="data", nois
         noise_level: Gaussian noise level as fraction (0.02 = 2% noise)
         plot: Whether to generate plots
         include_uncertainty: Whether to include uncertainty columns
-        background: Background level for all models (if None, uses 0.001)
+        background: Background level for all models (if None, uses 0.01)
                    Note: Deprecated - include 'background' in individual model params instead
 
     Returns:
@@ -232,7 +224,7 @@ def generate_multiple_synthetic_datasets(models=None, output_folder="data", nois
                 noise_level=noise_level,
                 plot=plot,
                 include_uncertainty=include_uncertainty,
-                background=background  # Still support legacy parameter
+                background=background,  # Still support legacy parameter
             )
             results[model_name] = (csv_path, ground_truth)
             print(f"✓ {model_name}: {csv_path}")
@@ -278,6 +270,7 @@ try:
 
     class SyntheticDataInput(BaseModel):
         """Input schema for synthetic data generation tool"""
+
         sample_description: str
         model_name: str = None
         params: dict = None
@@ -298,15 +291,15 @@ try:
             # Use simple keyword-based model selection if no model specified
             if not model_name:
                 desc_lower = sample_description.lower()
-                if any(word in desc_lower for word in ['sphere', 'globular', 'round', 'micelle']):
+                if any(word in desc_lower for word in ["sphere", "globular", "round", "micelle"]):
                     model_name = "sphere"
-                elif any(word in desc_lower for word in ['rod', 'cylinder', 'tube', 'fiber']):
+                elif any(word in desc_lower for word in ["rod", "cylinder", "tube", "fiber"]):
                     model_name = "cylinder"
-                elif any(word in desc_lower for word in ['flexible', 'polymer', 'chain', 'dna']):
+                elif any(word in desc_lower for word in ["flexible", "polymer", "chain", "dna"]):
                     model_name = "flexible_cylinder"
-                elif any(word in desc_lower for word in ['membrane', 'bilayer', 'layer']):
+                elif any(word in desc_lower for word in ["membrane", "bilayer", "layer"]):
                     model_name = "lamellar"
-                elif any(word in desc_lower for word in ['core', 'shell']):
+                elif any(word in desc_lower for word in ["core", "shell"]):
                     model_name = "core_shell_sphere"
                 else:
                     model_name = "sphere"
@@ -315,21 +308,10 @@ try:
             # Generate synthetic data using the simplified wrapper
             output_folder = "data"
             csv_path, ground_truth, plot_path = generate_sasview_data(
-                model_name=model_name,
-                params=params,
-                output_folder=output_folder,
-                noise_level=0.03,  # 3% noise
-                plot=True,
-                include_uncertainty=True
+                model_name=model_name, params=params, output_folder=output_folder, noise_level=0.03, plot=True, include_uncertainty=True  # 3% noise
             )
 
-            return {
-                "success": True,
-                "csv_path": csv_path,
-                "ground_truth_params": ground_truth,
-                "model_used": model_name,
-                "plot_file": str(Path(csv_path).parent / f"synthetic_{model_name}_plot.png")
-            }
+            return {"success": True, "csv_path": csv_path, "ground_truth_params": ground_truth, "model_used": model_name, "plot_file": str(Path(csv_path).parent / f"synthetic_{model_name}_plot.png")}
         except Exception as e:
             return {"success": False, "error": f"Data generation failed: {str(e)}"}
 
