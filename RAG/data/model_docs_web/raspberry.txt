@@ -1,0 +1,51 @@
+# raspberry — SasView 6.1.0 documentation
+
+Model: raspberry
+URL: https://www.sasview.org/docs/user/models/raspberry.html
+
+## Description
+Calculates the form factor, P(q), for a ‘Raspberry-like’ structure where there are smaller spheres at the surface of a larger sphere, such as the structure of a Pickering emulsion.
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **sld_lg**: large particle scattering length density
+  Units: 10-6Å-2
+- **sld_sm**: small particle scattering length density
+  Units: 10-6Å-2
+- **sld_solvent**: solvent scattering length density
+  Units: 10-6Å-2
+- **volfraction_lg**: volume fraction of large spheres
+  Units: None
+- **volfraction_sm**: volume fraction of small spheres
+  Units: None
+- **surface_fraction**: fraction of small spheres at surface
+  Units: None
+- **radius_lg**: radius of large spheres
+  Units: Å
+- **radius_sm**: radius of small spheres
+  Units: Å
+- **penetration**: fractional penetration depth of small spheres into large sphere
+  Units: Å
+
+## Equations
+\[S(q) = \frac{\sin(qR_1)}{qR_1}\frac{\sin(qR_2)}{qR_2}\frac{\sin(qr)}{qr}\]
+\[\Psi_L = \int_0^{R_L}(4\pi R^2_L)\frac{\sin(qR_L)}{qR_L}dR_L =
+\frac{3[\sin(qR_L)-qR_L\cos(qR_L)]}{(qR_L)^2}\]
+\[\Psi_S = \int_0^{R_S}(4\pi R^2_S)\frac{\sin(qR_S)}{qR_S}dR_S =
+\frac{3[\sin(qR_S)-qR_L\cos(qR_S)]}{(qR_S)^2}\]
+\[S_{LS} = \Psi_L\Psi_S\frac{\sin(q(R_L+\delta R_S))}{q(R_L+\delta\ R_S)}\]
+\[S_{SS} = \Psi_S^2\biggl[\frac{\sin(q(R_L+\delta R_S))}{q(R_L+\delta\ R_S)}
+\biggr]^2\]
+\[N_p = \frac{\phi_S\phi_\text{surface}V_L}{\phi_L V_S}\]
+\[P_{LS} = \frac{1}{M^2}\bigl[(\Delta\rho_L)^2V_L^2\Psi_L^2
+            +N_p(\Delta\rho_S)^2V_S^2\Psi_S^2
+            + N_p(1-N_p)(\Delta\rho_S)^2V_S^2S_{SS}
+            + 2N_p\Delta\rho_L\Delta\rho_SV_LV_SS_{LS}\bigr]\]
+\[M = \Delta\rho_LV_L + N_p\Delta\rho_SV_S\]
+\[I(Q) = I_{LS}(Q) + I_S(Q) = (\phi_L(\Delta\rho_L)^2V_L +
+        \phi_S\phi_\text{surface}N_p(\Delta\rho_S)^2V_S)P_{LS}
+        + \phi_S(1-\phi_\text{surface})(\Delta\rho_S)^2V_S\Psi_S^2\]
+\[\chi = \frac{4\phi_L\phi_\text{surface}(R_L+\delta R_S)}{\phi_LR_S}\]

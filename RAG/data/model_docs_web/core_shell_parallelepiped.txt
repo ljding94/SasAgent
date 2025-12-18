@@ -1,0 +1,58 @@
+# core_shell_parallelepiped — SasView 6.1.0 documentation
+
+Model: core_shell_parallelepiped
+URL: https://www.sasview.org/docs/user/models/core_shell_parallelepiped.html
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **sld_core**: Parallelepiped core scattering length density
+  Units: 10-6Å-2
+- **sld_a**: Parallelepiped A rim scattering length density
+  Units: 10-6Å-2
+- **sld_b**: Parallelepiped B rim scattering length density
+  Units: 10-6Å-2
+- **sld_c**: Parallelepiped C rim scattering length density
+  Units: 10-6Å-2
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+- **length_a**: Shorter side of the parallelepiped
+  Units: Å
+- **length_b**: Second side of the parallelepiped
+  Units: Å
+- **length_c**: Larger side of the parallelepiped
+  Units: Å
+- **thick_rim_a**: Thickness of A rim
+  Units: Å
+- **thick_rim_b**: Thickness of B rim
+  Units: Å
+- **thick_rim_c**: Thickness of C rim
+  Units: Å
+- **theta**: c axis to beam angle
+  Units: degree
+- **phi**: rotation about beam
+  Units: degree
+- **psi**: rotation about c axis
+  Units: degree
+
+## Equations
+\[I(q) = \frac{\text{scale}}{V} \langle P(q,\alpha,\beta) \rangle
++ \text{background}\]
+\[V = ABC + 2t_ABC + 2t_BAC + 2t_CAB\]
+\[P(q)=\frac {\int_{0}^{\pi/2}\int_{0}^{\pi/2}F^2(q,\alpha,\beta) \ sin\alpha
+\ d\alpha \ d\beta} {\int_{0}^{\pi/2} \ sin\alpha \ d\alpha \ d\beta}\]
+\[\begin{split}F(q,\alpha,\beta)
+&= (\rho_\text{core}-\rho_\text{solvent})
+   S(Q_A, A) S(Q_B, B) S(Q_C, C) \\
+&+ (\rho_\text{A}-\rho_\text{solvent})
+    \left[S(Q_A, A+2t_A) - S(Q_A, A)\right] S(Q_B, B) S(Q_C, C) \\
+&+ (\rho_\text{B}-\rho_\text{solvent})
+    S(Q_A, A) \left[S(Q_B, B+2t_B) - S(Q_B, B)\right] S(Q_C, C) \\
+&+ (\rho_\text{C}-\rho_\text{solvent})
+    S(Q_A, A) S(Q_B, B) \left[S(Q_C, C+2t_C) - S(Q_C, C)\right]\end{split}\]
+\[S(Q_X, L) = L \frac{\sin (\tfrac{1}{2} Q_X L)}{\tfrac{1}{2} Q_X L}\]
+\[\begin{split}Q_A &= q \sin\alpha \sin\beta \\
+Q_B &= q \sin\alpha \cos\beta \\
+Q_C &= q \cos\alpha\end{split}\]

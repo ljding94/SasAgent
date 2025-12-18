@@ -1,0 +1,33 @@
+# ellipsoid — SasView 6.1.0 documentation
+
+Model: ellipsoid
+URL: https://www.sasview.org/docs/user/models/ellipsoid.html
+
+## Description
+Ellipsoid of revolution with uniform scattering length density.
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **sld**: Ellipsoid scattering length density
+  Units: 10-6Å-2
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+- **radius_polar**: Polar radius
+  Units: Å
+- **radius_equatorial**: Equatorial radius
+  Units: Å
+- **theta**: ellipsoid axis to beam angle
+  Units: degree
+- **phi**: rotation about beam
+  Units: degree
+
+## Equations
+\[P(q,\alpha) = \frac{\text{scale}}{V} F^2(q,\alpha) + \text{background}\]
+\[F(q,\alpha) = \Delta \rho V \frac{3(\sin qr  - qr \cos qr)}{(qr)^3}\]
+\[r = \left[ R_e^2 \sin^2 \alpha + R_p^2 \cos^2 \alpha \right]^{1/2}\]
+\[\langle F^2(q) \rangle = \int_{0}^{\pi/2}{F^2(q,\alpha)\sin(\alpha)\,d\alpha}\]
+\[\langle F^2(q) \rangle = \int_0^1{F^2(q, u)\,du}\]
+\[r = R_e \left[ 1 + u^2\left(R_p^2/R_e^2 - 1\right)\right]^{1/2}\]

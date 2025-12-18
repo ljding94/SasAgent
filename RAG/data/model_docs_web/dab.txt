@@ -1,0 +1,17 @@
+# dab — SasView 6.1.0 documentation
+
+Model: dab
+URL: https://www.sasview.org/docs/user/models/dab.html
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **cor_length**: correlation length
+  Units: Å
+
+## Equations
+\[I(q) = \text{scale}\cdot\frac{L^3}{(1 + (q\cdot L)^2)^2} + \text{background}\]
+\[\text{scale} = 8 \pi \phi (1-\phi) \Delta\rho^2\]
+\[q = \sqrt{q_x^2 + q_y^2}\]

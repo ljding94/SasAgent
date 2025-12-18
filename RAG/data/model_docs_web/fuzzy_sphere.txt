@@ -1,0 +1,28 @@
+# fuzzy_sphere — SasView 6.1.0 documentation
+
+Model: fuzzy_sphere
+URL: https://www.sasview.org/docs/user/models/fuzzy_sphere.html
+
+## Description
+Scattering from spherical particles with a fuzzy surface.
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **sld**: Particle scattering length density
+  Units: 10-6Å-2
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+- **radius**: Sphere radius
+  Units: Å
+- **fuzziness**: std deviation of Gaussian convolution for interface (must be << radius)
+  Units: Å
+
+## Equations
+\[I(q) = \frac{\text{scale}}{V}(\Delta \rho)^2 A^2(q) S(q)
+       + \text{background}\]
+\[A(q) = \frac{3\left[\sin(qR) - qR \cos(qR)\right]}{(qR)^3}
+       \exp\left(\frac{-(\sigma_\text{fuzzy}q)^2}{2}\right)\]
+\[q = \sqrt{{q_x}^2 + {q_y}^2}\]

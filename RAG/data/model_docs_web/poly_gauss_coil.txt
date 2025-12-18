@@ -1,0 +1,25 @@
+# poly_gauss_coil — SasView 6.1.0 documentation
+
+Model: poly_gauss_coil
+URL: https://www.sasview.org/docs/user/models/poly_gauss_coil.html
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **i_zero**: Intensity at q=0
+  Units: cm-1
+- **rg**: Radius of gyration
+  Units: Å
+- **polydispersity**: Polymer Mw/Mn
+  Units: None
+
+## Equations
+\[I(q) = \text{scale} \cdot I_0 \cdot P(q) + \text{background}\]
+\[\begin{split}I_0 &= \phi_\text{poly} \cdot V \cdot (\rho_\text{poly}-\rho_\text{solv})^2 \\
+P(q) &= 2 [(1 + UZ)^{-1/U} + Z - 1] / [(1 + U) Z^2] \\
+Z &= [(q R_g)^2] / (1 + 2U) \\
+U &= (Mw / Mn) - 1 = \text{polydispersity ratio} - 1 \\
+V &= M / (N_A \delta)\end{split}\]
+\[q = \sqrt{q_x^2 + q_y^2}\]

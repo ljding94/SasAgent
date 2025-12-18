@@ -1,0 +1,42 @@
+# pearl_necklace — SasView 6.1.0 documentation
+
+Model: pearl_necklace
+URL: https://www.sasview.org/docs/user/models/pearl_necklace.html
+
+## Description
+Colloidal spheres chained together with no preferential orientation
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **radius**: Mean radius of the chained spheres
+  Units: Å
+- **edge_sep**: Mean separation of chained particles
+  Units: Å
+- **thick_string**: Thickness of the chain linkage
+  Units: Å
+- **num_pearls**: Number of pearls in the necklace (must be integer)
+  Units: none
+- **sld**: Scattering length density of the chained spheres
+  Units: 10-6Å-2
+- **sld_string**: Scattering length density of the chain linkage
+  Units: 10-6Å-2
+- **sld_solvent**: Scattering length density of the solvent
+  Units: 10-6Å-2
+
+## Equations
+\[I(q)=\frac{ \text{scale} }{V} \cdot \frac{(S_{ss}(q)+S_{ff}(q)+S_{fs}(q))}
+    {(M \cdot m_f + N \cdot m_s)^2} + \text{bkg}\]
+\[\begin{split}S_{ss}(q) &= 2m_s^2\psi^2(q)\left[\frac{N}{1-sin(qA)/qA}-\frac{N}{2}-
+    \frac{1-(sin(qA)/qA)^N}{(1-sin(qA)/qA)^2}\cdot\frac{sin(qA)}{qA}\right] \\
+S_{ff}(q) &= m_r^2\left[M\left\{2\Lambda(q)-\left(\frac{sin(ql/2)}{ql/2}\right)\right\}+
+    \frac{2M\beta^2(q)}{1-sin(qA)/qA}-2\beta^2(q)\cdot
+    \frac{1-(sin(qA)/qA)^M}{(1-sin(qA)/qA)^2}\right] \\
+S_{fs}(q) &= m_r \beta (q) \cdot m_s \psi (q) \cdot 4\left[
+    \frac{N-1}{1-sin(qA)/qA}-\frac{1-(sin(qA)/qA)^{N-1}}{(1-sin(qA)/qA)^2}
+    \cdot \frac{sin(qA)}{qA}\right] \\
+\psi(q) &= 3 \cdot \frac{sin(qR)-(qR)\cdot cos(qR)}{(qR)^3} \\
+\Lambda(q) &= \frac{\int_0^{ql}\frac{sin(t)}{t}dt}{ql} \\
+\beta(q) &= \frac{\int_{qR}^{q(A-R)}\frac{sin(t)}{t}dt}{ql}\end{split}\]

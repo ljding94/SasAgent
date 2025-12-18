@@ -1,0 +1,38 @@
+# binary_hard_sphere — SasView 6.1.0 documentation
+
+Model: binary_hard_sphere
+URL: https://www.sasview.org/docs/user/models/binary_hard_sphere.html
+
+## Description
+binary mixture of hard spheres with hard sphere interactions.
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **radius_lg**: radius of large particle
+  Units: Å
+- **radius_sm**: radius of small particle
+  Units: Å
+- **volfraction_lg**: volume fraction of large particle
+  Units: None
+- **volfraction_sm**: volume fraction of small particle
+  Units: None
+- **sld_lg**: scattering length density of large particle
+  Units: 10-6Å-2
+- **sld_sm**: scattering length density of small particle
+  Units: 10-6Å-2
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+
+## Equations
+\[I(q) = (1-x)f_1^2(q) S_{11}(q) + 2[x(1-x)]^{1/2} f_1(q)f_2(q)S_{12}(q) +
+x\,f_2^2(q)S_{22}(q)\]
+\begin{align*}
+x &= \frac{(\phi_2 / \phi)\alpha^3}{(1-(\phi_2/\phi) + (\phi_2/\phi)
+\alpha^3)} \\
+\phi &= \phi_1 + \phi_2 = \text{total volume fraction} \\
+\alpha &= R_1/R_2 = \text{size ratio}
+\end{align*}
+\[q = \sqrt{q_x^2 + q_y^2}\]

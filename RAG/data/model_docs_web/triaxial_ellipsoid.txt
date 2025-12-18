@@ -1,0 +1,43 @@
+# triaxial_ellipsoid — SasView 6.1.0 documentation
+
+Model: triaxial_ellipsoid
+URL: https://www.sasview.org/docs/user/models/triaxial_ellipsoid.html
+
+## Description
+Ellipsoid of uniform scattering length density with three independent axes.
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **sld**: Ellipsoid scattering length density
+  Units: 10-6Å-2
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+- **radius_equat_minor**: Minor equatorial radius, Ra
+  Units: Å
+- **radius_equat_major**: Major equatorial radius, Rb
+  Units: Å
+- **radius_polar**: Polar radius, Rc
+  Units: Å
+- **theta**: polar axis to beam angle
+  Units: degree
+- **phi**: rotation about beam
+  Units: degree
+- **psi**: rotation about polar axis
+  Units: degree
+
+## Equations
+\[\frac{X^2}{R_a^2} + \frac{Y^2}{R_b^2} + \frac{Z^2}{R_c^2} = 1\]
+\[P(q) = \text{scale}(\Delta\rho)^2\frac{V}{4 \pi}\int_\Omega\Phi^2(qr)\,d\Omega
+       + \text{background}\]
+\[\begin{split}\Phi(qr) &= 3 j_1(qr)/qr = 3 (\sin qr - qr \cos qr)/(qr)^3 \\
+r^2 &= R_a^2e^2 + R_b^2f^2 + R_c^2g^2 \\
+V &= \tfrac{4}{3} \pi R_a R_b R_c\end{split}\]
+\[\langle\Phi^2\rangle = \int_0^{2\pi} \int_{-\pi/2}^{\pi/2} \Phi^2(qr)
+                                           \cos \gamma\,d\gamma d\phi\]
+\[r^2 = b^2(p_a \sin^2 \phi \cos^2 \gamma + 1 + p_c \sin^2 \gamma)\]
+\[p_a = \frac{a^2}{b^2} - 1 \text{ and } p_c = \frac{c^2}{b^2} - 1\]
+\[\begin{split}\langle\Phi^2\rangle &= 8 \int_0^{\pi/2} \int_0^1 \Phi^2(qr) du d\phi \\
+r^2 &= b^2(p_a \sin^2(\phi)(1 - u^2) + 1 + p_c u^2)\end{split}\]

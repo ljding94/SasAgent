@@ -1,7 +1,6 @@
 /*
 !RAG
 RAG/__pycache__/
-RAG/data/*
 !SAS
 SAS/__pycache__/
 !test

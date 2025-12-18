@@ -1,0 +1,34 @@
+# rpa — SasView 6.1.0 documentation
+
+Model: rpa
+URL: https://www.sasview.org/docs/user/models/rpa.html
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **case_num**: Component organization
+  Units: None
+- **N[4]**: Degree of polymerization
+  Units: None
+- **Phi[4]**: volume fraction
+  Units: None
+- **v[4]**: molar volume
+  Units: mL/mol
+- **L[4]**: scattering length
+  Units: fm
+- **b[4]**: segment length
+  Units: Å
+- **K12**: A:B interaction parameter
+  Units: None
+- **K13**: A:C interaction parameter
+  Units: None
+- **K14**: A:D interaction parameter
+  Units: None
+- **K23**: B:C interaction parameter
+  Units: None
+- **K24**: B:D interaction parameter
+  Units: None
+- **K34**: C:D interaction parameter
+  Units: None

@@ -1,0 +1,33 @@
+# teubner_strey — SasView 6.1.0 documentation
+
+Model: teubner_strey
+URL: https://www.sasview.org/docs/user/models/teubner_strey.html
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **volfraction_a**: Volume fraction of phase a
+  Units: None
+- **sld_a**: SLD of phase a
+  Units: 10-6Å-2
+- **sld_b**: SLD of phase b
+  Units: 10-6Å-2
+- **d**: Domain size (periodicity)
+  Units: Å
+- **xi**: Correlation length
+  Units: Å
+
+## Equations
+\[I(q) \propto \frac{1}{a_2 + c_1 q^2 + c_2 q^4} + \text{background}\]
+\[\begin{split}a_2 &= \biggl[1+\bigl(\frac{2\pi\xi}{d}\bigr)^2\biggr]^2\\
+c_1 &= -2\xi^2\bigl(\frac{2\pi\xi}{d}\bigr)^2+2\xi^2\\
+c_2 &= \xi^4\end{split}\]
+\[d = 2\pi\left[\frac12\left(\frac{a_2}{c_2}\right)^{1/2}
+              - \frac14\frac{c_1}{c_2}\right]^{-1/2}\]
+\[\xi = \left[\frac12\left(\frac{a_2}{c_2}\right)^{1/2}
+              + \frac14\frac{c_1}{c_2}\right]^{-1/2}\]
+\[I(q) = \frac{8\pi\phi_a(1-\phi_a)(\Delta\rho)^2c_2/\xi}
+    {a_2 + c_1q^2 + c_2q^4}\]
+\[q = \sqrt{q_x^2 + q_y^2}\]

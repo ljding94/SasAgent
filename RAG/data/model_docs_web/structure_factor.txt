@@ -1,0 +1,6 @@
+Model: structure_factor
+Title: Structure Factors — SasView 6.1.0 documentation
+URL: https://www.sasview.org/docs/user/qtgui/Perspectives/Fitting/models/structure-factor.html
+
+Description:
+unified_power_Rg hardsphere

@@ -1,0 +1,19 @@
+# gaussian_peak — SasView 6.1.0 documentation
+
+Model: gaussian_peak
+URL: https://www.sasview.org/docs/user/models/gaussian_peak.html
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **peak_pos**: Peak position
+  Units: Å-1
+- **sigma**: Peak width (standard deviation)
+  Units: Å-1
+
+## Equations
+\[I(q) = (\text{scale}) \exp\left[ -\tfrac12 (q-q_0)^2 / \sigma^2 \right]
+    + \text{background}\]
+\[q = \sqrt{q_x^2 + q_y^2}\]

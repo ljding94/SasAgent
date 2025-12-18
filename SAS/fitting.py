@@ -286,13 +286,34 @@ def sasview_fit_with_bumps(csv_path, model_name, param_constraints=None, fixed_p
 
         # Get fitted parameters (include both fitted and fixed parameters)
         fitted_params = {}
+        param_uncertainties = {}
         all_param_names = list(initial_params.keys())  # Get all parameter names including fixed ones
         for param_name in all_param_names:
             if hasattr(model, param_name):
                 param = getattr(model, param_name)
                 fitted_params[param_name] = float(param.value)
+                # Get uncertainty for fitted parameters
+                if param_name in param_names:  # Only fitted parameters have uncertainties
+                    try:
+                        # Try to get stderr from result object
+                        if hasattr(result, 'dx') and result.dx is not None:
+                            param_idx = param_names.index(param_name)
+                            if param_idx < len(result.dx):
+                                param_uncertainties[param_name] = float(result.dx[param_idx])
+                        elif hasattr(result, 'stderr') and result.stderr is not None:
+                            param_idx = param_names.index(param_name)
+                            if param_idx < len(result.stderr):
+                                param_uncertainties[param_name] = float(result.stderr[param_idx])
+                        else:
+                            param_uncertainties[param_name] = None
+                    except Exception as e:
+                        print(f"Warning: Could not get uncertainty for {param_name}: {e}")
+                        param_uncertainties[param_name] = None
+                else:
+                    param_uncertainties[param_name] = None  # Fixed parameters don't have uncertainties
 
         print(f"Fitted parameters: {fitted_params}")
+        print(f"Parameter uncertainties: {param_uncertainties}")
 
     except Exception as e:
         return {"error": f"Bumps fitting failed: {str(e)}"}
@@ -352,18 +373,51 @@ def sasview_fit_with_bumps(csv_path, model_name, param_constraints=None, fixed_p
         param_text_lines = []
         param_text_lines.append(f"Model: {model_name}")  # Add model name at the top
         for param_name, param_value in fitted_params.items():
+            uncertainty = param_uncertainties.get(param_name)
+
+            # Helper function to determine if scientific notation should be used for uncertainty
+            def should_use_scientific(value, uncert):
+                if uncert is None:
+                    return False  # Don't use scientific notation if no uncertainty
+                # Use scientific notation only for very small or large uncertainties
+                return abs(uncert) < 0.01 or abs(uncert) > 10000
+
             if param_name in ['scale', 'background']:
                 # Format scale and background with scientific notation if small
-                if abs(param_value) < 0.01:
-                    param_text_lines.append(f"{param_name}: {param_value:.2e}")
+                if should_use_scientific(param_value, uncertainty):
+                    if uncertainty is not None:
+                        param_text_lines.append(f"{param_name}: {param_value:.4f} ± {uncertainty:.2e}")
+                    else:
+                        param_text_lines.append(f"{param_name}: {param_value:.4f}")
                 else:
-                    param_text_lines.append(f"{param_name}: {param_value:.4f}")
+                    if uncertainty is not None:
+                        param_text_lines.append(f"{param_name}: {param_value:.4f} ± {uncertainty:.4f}")
+                    else:
+                        param_text_lines.append(f"{param_name}: {param_value:.4f}")
             elif 'sld' in param_name.lower():
                 # Format SLD parameters with appropriate precision
-                param_text_lines.append(f"{param_name}: {param_value:.2f}")
+                if should_use_scientific(param_value, uncertainty):
+                    if uncertainty is not None:
+                        param_text_lines.append(f"{param_name}: {param_value:.2f} ± {uncertainty:.2e}")
+                    else:
+                        param_text_lines.append(f"{param_name}: {param_value:.2f}")
+                else:
+                    if uncertainty is not None:
+                        param_text_lines.append(f"{param_name}: {param_value:.2f} ± {uncertainty:.2f}")
+                    else:
+                        param_text_lines.append(f"{param_name}: {param_value:.2f}")
             else:
                 # Format structural parameters (radius, length, thickness, etc.)
-                param_text_lines.append(f"{param_name}: {param_value:.1f}")
+                if should_use_scientific(param_value, uncertainty):
+                    if uncertainty is not None:
+                        param_text_lines.append(f"{param_name}: {param_value:.1f} ± {uncertainty:.2e}")
+                    else:
+                        param_text_lines.append(f"{param_name}: {param_value:.1f}")
+                else:
+                    if uncertainty is not None:
+                        param_text_lines.append(f"{param_name}: {param_value:.1f} ± {uncertainty:.1f}")
+                    else:
+                        param_text_lines.append(f"{param_name}: {param_value:.1f}")
 
         param_text = "\n".join(param_text_lines)
 
@@ -372,8 +426,8 @@ def sasview_fit_with_bumps(csv_path, model_name, param_constraints=None, fixed_p
                  transform=ax1.transAxes,
                  verticalalignment='bottom',
                  horizontalalignment='left',
-                 bbox=dict(boxstyle="round,pad=0.5", facecolor="lightblue", alpha=0.8),
-                 fontsize=5) #, family='monospace')
+                 bbox=dict(boxstyle="round,pad=0.5", facecolor="lightblue", alpha=0.6),
+                 fontsize=5, zorder=0)
 
         # Residuals plot
         residuals_norm = residuals / error_data
@@ -416,6 +470,7 @@ def sasview_fit_with_bumps(csv_path, model_name, param_constraints=None, fixed_p
     fit_result = {
         "model": model_name,
         "parameters": fitted_params,
+        "uncertainties": param_uncertainties,
         "chi_squared": float(chi_squared),
         "chi_squared_reduced": float(chi_squared_reduced),
         "rmse": float(rmse),
@@ -434,8 +489,27 @@ def sasview_fit_with_bumps(csv_path, model_name, param_constraints=None, fixed_p
         f"- RMSE = {rmse:.3e} ({relative_rmse:.1f}% relative)\n"
         f"- χ² = {chi_squared:.2f}, χ²ᵣ = {chi_squared_reduced:.2f}\n"
         f"- Data points: {n_data}, Parameters: {n_params}\n"
-        f"- Method: SasView/Bumps fitting (recommended)"
+        f"- Method: SasView/Bumps fitting (recommended)\n"
+        f"- Fitted Parameters:\n"
     )
+
+    for param_name, param_value in fitted_params.items():
+        uncertainty = param_uncertainties.get(param_name)
+
+        # Helper function to determine if scientific notation should be used
+        def should_use_scientific_report(value, uncert):
+            if uncert is None:
+                return False  # Don't use scientific notation if no uncertainty
+            # Use scientific notation only for very small or large uncertainties
+            return abs(uncert) < 0.01 or abs(uncert) > 10000
+
+        if uncertainty is not None:
+            if should_use_scientific_report(param_value, uncertainty):
+                report += f"  {param_name}: {param_value:.4f} ± {uncertainty:.2e}\n"
+            else:
+                report += f"  {param_name}: {param_value:.4f} ± {uncertainty:.4f}\n"
+        else:
+            report += f"  {param_name}: {param_value:.4f}\n"
 
     return {"plot_base64": plot_base64, "plot_file": plot_path, "fit_json": fit_result, "report": report}
 

@@ -1,0 +1,39 @@
+# hollow_rectangular_prism_thin_walls — SasView 6.1.0 documentation
+
+Model: hollow_rectangular_prism_thin_walls
+URL: https://www.sasview.org/docs/user/models/hollow_rectangular_prism_thin_walls.html
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **sld**: Parallelepiped scattering length density
+  Units: 10-6Å-2
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+- **length_a**: Shorter side of the parallelepiped
+  Units: Å
+- **b2a_ratio**: Ratio sides b/a
+  Units: Å
+- **c2a_ratio**: Ratio sides c/a
+  Units: Å
+
+## Equations
+\[P(q) = \frac{1}{V^2} \frac{2}{\pi} \int_0^{\frac{\pi}{2}}
+       \int_0^{\frac{\pi}{2}} [A_L(q)+A_T(q)]^2 \sin\theta\,d\theta\,d\phi\]
+\[\begin{split}V &= 2AB + 2AC + 2BC \\
+A_L(q) &=  8 \times \frac{
+        \sin \left( \tfrac{1}{2} q A \sin\phi \sin\theta \right)
+        \sin \left( \tfrac{1}{2} q B \cos\phi \sin\theta \right)
+        \cos \left( \tfrac{1}{2} q C \cos\theta \right)
+    }{q^2 \, \sin^2\theta \, \sin\phi \cos\phi} \\
+A_T(q) &=  A_F(q) \times
+  \frac{2\,\sin \left( \tfrac{1}{2} q C \cos\theta \right)}{q\,\cos\theta}\end{split}\]
+\[A_F(q) =  4 \frac{ \cos \left( \tfrac{1}{2} q A \sin\phi \sin\theta \right)
+                     \sin \left( \tfrac{1}{2} q B \cos\phi \sin\theta \right) }
+                   {q \, \cos\phi \, \sin\theta} +
+            4 \frac{ \sin \left( \tfrac{1}{2} q A \sin\phi \sin\theta \right)
+                     \cos \left( \tfrac{1}{2} q B \cos\phi \sin\theta \right) }
+                   {q \, \sin\phi \, \sin\theta}\]
+\[I(q) = \text{scale} \times V \times (\rho_\text{p} - \rho_\text{solvent})^2 \times P(q)\]

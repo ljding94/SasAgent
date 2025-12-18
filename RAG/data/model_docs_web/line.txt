@@ -1,0 +1,18 @@
+# line — SasView 6.1.0 documentation
+
+Model: line
+URL: https://www.sasview.org/docs/user/models/line.html
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **intercept**: intercept in linear model
+  Units: cm-1
+- **slope**: slope in linear model
+  Units: Å·cm-1
+
+## Equations
+\[I(q) = \text{scale} (A + B \cdot q) + \text{background}\]
+\[I(q) = \text{scale} (I(qx) \cdot I(qy)) + \text{background}\]

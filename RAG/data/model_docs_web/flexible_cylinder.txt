@@ -1,0 +1,27 @@
+# flexible_cylinder — SasView 6.1.0 documentation
+
+Model: flexible_cylinder
+URL: https://www.sasview.org/docs/user/models/flexible_cylinder.html
+
+## Description
+Flexible cylinder where the form factor is normalized by the volume of the cylinder.
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **length**: Length of the flexible cylinder
+  Units: Å
+- **kuhn_length**: Kuhn length of the flexible cylinder
+  Units: Å
+- **radius**: Radius of the flexible cylinder
+  Units: Å
+- **sld**: Cylinder scattering length density
+  Units: 10-6Å-2
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+
+## Equations
+\[P(q) = \text{scale} \left<F^2\right>/V + \text{background}\]
+\[q = \sqrt{q_x^2 + q_y^2}\]

@@ -1,0 +1,64 @@
+# core_shell_bicelle_elliptical_belt_rough — SasView 6.1.0 documentation
+
+Model: core_shell_bicelle_elliptical_belt_rough
+URL: https://www.sasview.org/docs/user/models/core_shell_bicelle_elliptical_belt_rough.html
+
+## Description
+Elliptical cylinder with a core-shell scattering length density profile..
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **radius**: Cylinder core radius r_minor
+  Units: Å
+- **x_core**: Axial ratio of core, X = r_major/r_minor
+  Units: None
+- **thick_rim**: Rim or belt shell thickness
+  Units: Å
+- **thick_face**: Cylinder face thickness
+  Units: Å
+- **length**: Cylinder length
+  Units: Å
+- **sld_core**: Cylinder core scattering length density
+  Units: 10-6Å-2
+- **sld_face**: Cylinder face scattering length density
+  Units: 10-6Å-2
+- **sld_rim**: Cylinder rim scattering length density
+  Units: 10-6Å-2
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+- **sigma**: Interfacial roughness
+  Units: Å
+- **theta**: Cylinder axis to beam angle
+  Units: degree
+- **phi**: Rotation about beam
+  Units: degree
+- **psi**: Rotation about cylinder axis
+  Units: degree
+
+## Equations
+\[\begin{split}\rho(r) =
+  \begin{cases}
+  &\rho_c \text{ for } 0 \lt r \lt R;   -L/2 \lt z\lt L/2 \\[1.5ex]
+  &\rho_f \text{ for } 0 \lt r \lt R;   -(L/2 +t_\text{face}) \lt z\lt -L/2;
+  L/2 \lt z\lt (L/2+t_\text{face}) \\[1.5ex]
+  &\rho_r\text{ for } R \lt r \lt R+t_\text{rim}; -L/2 \lt z\lt L/2
+  \end{cases}\end{split}\]
+\[I(Q,\alpha,\psi) = \frac{\text{scale}}{V_t}
+    \cdot F(Q,\alpha, \psi)^2 \cdot \sin(\alpha)
+    \cdot\exp\left\{ -\frac{1}{2}Q^2\sigma^2 \right\} + \text{background}\]
+\[\begin{split}F(Q,\alpha,\psi) = &\bigg[
+  (\rho_c -\rho_r - \rho_f + \rho_s) V_c
+  \frac{2J_1(QR'\sin \alpha)}{QR'\sin\alpha}
+  \frac{\sin(QL\cos\alpha/2)}{Q(L/2)\cos\alpha} \\
+&+(\rho_f - \rho_s) V_{c+f}
+  \frac{2J_1(QR'\sin\alpha)}{QR'\sin\alpha}
+  \frac{\sin(Q(L/2+t_f)\cos\alpha)}{Q(L/2+t_f)\cos\alpha} \\
+&+(\rho_r - \rho_s) V_{c+r}
+  \frac{2J_1(Q(R'+t_r)\sin\alpha)}{Q(R'+t_r)\sin\alpha}
+  \frac{\sin(Q(L/2)\cos\alpha)}{Q(L/2)\cos\alpha}
+\bigg]\end{split}\]
+\[R' = \frac{R}{\sqrt{2}}
+    \sqrt{(1+X_\text{core}^{2}) + (1-X_\text{core}^{2})\cos(\psi)}\]

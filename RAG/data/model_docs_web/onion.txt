@@ -1,0 +1,103 @@
+# onion — SasView 6.1.0 documentation
+
+Model: onion
+URL: https://www.sasview.org/docs/user/models/onion.html
+
+## Description
+Onion shell model with constant, linear or exponential density
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **sld_core**: Core scattering length density
+  Units: 10-6Å-2
+- **radius_core**: Radius of the core
+  Units: Å
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+- **n_shells**: number of shells (must be integer)
+  Units: None
+- **sld_in[n_shells]**: scattering length density at the inner radius of shell k
+  Units: 10-6Å-2
+- **sld_out[n_shells]**: scattering length density at the outer radius of shell k
+  Units: 10-6Å-2
+- **thickness[n_shells]**: Thickness of shell k
+  Units: Å
+- **A[n_shells]**: Decay rate of shell k
+  Units: None
+
+## Equations
+\[P(q) = [f]^2 / V_\text{particle}\]
+\begin{align*}
+f &= f_\text{core}
+        + \left(\sum_{\text{shell}=1}^N f_\text{shell}\right)
+        + f_\text{solvent}
+\end{align*}
+\begin{align*}
+f_\text{core}
+    &= 4\pi\int_0^{r_\text{core}} \rho_\text{core}
+        \frac{\sin(qr)}{qr}\, r^2\,\mathrm{d}r
+    &= 3\rho_\text{core} V(r_\text{core})
+        \frac{j_1(qr_\text{core})}{qr_\text{core}} \\
+f_\text{shell}
+    &= 4\pi\int_{r_{\text{shell}-1}}^{r_\text{shell}}
+        \rho_\text{shell}(r)\frac{\sin(qr)}{qr}\,r^2\,\mathrm{d}r \\
+f_\text{solvent}
+    &= 4\pi\int_{r_N}^\infty
+        \rho_\text{solvent}\frac{\sin(qr)}{qr}\,r^2\,\mathrm{d}r
+    &= -3\rho_\text{solvent}V(r_N)\frac{j_1(q r_N)}{q r_N}
+\end{align*}
+\[j_1(x) = \frac{\sin(x)}{x^2} - \frac{\cos(x)}{x}\]
+\[\begin{split}\rho_\text{shell}(r) = \begin{cases}
+    B\exp\left(A(r-r_{\text{shell}-1})/\Delta t_\text{shell}\right)
+        + C & \mbox{for } A \neq 0 \\
+    \rho_\text{in} = \text{constant} & \mbox{for } A = 0
+\end{cases}\end{split}\]
+\[\begin{split}f_\text{shell} &= 4 \pi \int_{r_{\text{shell}-1}}^{r_\text{shell}}
+    \left[ B\exp
+        \left(A (r - r_{\text{shell}-1}) / \Delta t_\text{shell} \right) + C
+    \right] \frac{\sin(qr)}{qr}\,r^2\,\mathrm{d}r \\
+&= 3BV(r_\text{shell}) e^A h(\alpha_\text{out},\beta_\text{out})
+    - 3BV(r_{\text{shell}-1}) h(\alpha_\text{in},\beta_\text{in})
+    + 3CV(r_{\text{shell}}) \frac{j_1(\beta_\text{out})}{\beta_\text{out}}
+    - 3CV(r_{\text{shell}-1}) \frac{j_1(\beta_\text{in})}{\beta_\text{in}}\end{split}\]
+\begin{align*}
+B&=\frac{\rho_\text{out} - \rho_\text{in}}{e^A-1}
+     & C &= \frac{\rho_\text{in}e^A - \rho_\text{out}}{e^A-1} \\
+\alpha_\text{in} &= A\frac{r_{\text{shell}-1}}{\Delta t_\text{shell}}
+     & \alpha_\text{out} &= A\frac{r_\text{shell}}{\Delta t_\text{shell}} \\
+\beta_\text{in} &= qr_{\text{shell}-1}
+    & \beta_\text{out} &= qr_\text{shell}
+\end{align*}
+\[h(x,y) = \frac{x \sin(y) - y\cos(y)}{(x^2+y^2)y}
+          - \frac{(x^2-y^2)\sin(y) - 2xy\cos(y)}{(x^2+y^2)^2y}\]
+\begin{align*}
+f_\text{shell}
+&=
+  3 V(r_\text{shell}) \frac{\Delta\rho_\text{shell}}{\Delta t_\text{shell}}
+    \left[\frac{
+            2 \cos(qr_\text{out})
+                + qr_\text{out} \sin(qr_\text{out})
+        }{
+            (qr_\text{out})^4
+        }\right] \\
+ &{}
+  -3 V(r_\text{shell}) \frac{\Delta\rho_\text{shell}}{\Delta t_\text{shell}}
+    \left[\frac{
+                2\cos(qr_\text{in})
+            +qr_\text{in}\sin(qr_\text{in})
+        }{
+            (qr_\text{in})^4
+        }\right] \\
+&{}
+  +3\rho_\text{out}V(r_\text{shell}) \frac{j_1(qr_\text{out})}{qr_\text{out}}
+  -3\rho_\text{in}V(r_{\text{shell}-1}) \frac{j_1(qr_\text{in})}{qr_\text{in}}
+\end{align*}
+\[f_\text{shell} =
+    3\rho_\text{in}V(r_\text{shell})
+       \frac{j_1(qr_\text{out})}{qr_\text{out}}
+    - 3\rho_\text{in}V(r_{\text{shell}-1})
+        \frac{j_1(qr_\text{in})}{qr_\text{in}}\]
+\[q = \sqrt{q_x^2 + q_y^2}\]

@@ -1,0 +1,47 @@
+# superball — SasView 6.1.0 documentation
+
+Model: superball
+URL: https://www.sasview.org/docs/user/models/superball.html
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **sld**: Superball scattering length density
+  Units: 10-6Å-2
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+- **length_a**: Cube edge length of the superball
+  Units: Å
+- **exponent_p**: Exponent describing the roundness of the superball
+  Units: None
+- **theta**: c axis to beam angle
+  Units: degree
+- **phi**: rotation about beam
+  Units: degree
+- **psi**: rotation about c axis
+  Units: degree
+
+## Equations
+\[x^{2p} + y^{2p} + z^{2p} \leq \biggl( \frac{a}{2} \biggr)^{2p}\]
+\[p = \frac{1}{1 + 2 \mathrm{log}_2 (a/d)}.\]
+\[\begin{split}p_o(\vec{q}) =& \int_{V} \mathrm{d} \vec{r} e^{i \vec{q} \cdot \vec{r}}\\
+    =& \frac{a^3}{8} \int_{-1}^{1} \mathrm{d} x \int_{-\gamma}^{\gamma}
+        \mathrm{d} y \int_{-\zeta}^{\zeta} \mathrm{d} z
+        e^{i a (q_x x + q_y y + q_z z) / 2}\\
+    =& \frac{a^2}{2 q_z} \int_{-1}^{1} \mathrm{d} x \int_{-\gamma}^{\gamma}
+        \mathrm{d} y  e^{i a(q_x x + q_y y)/2}
+        \sin(q_z a \zeta / 2),\end{split}\]
+\[\begin{split}\gamma =& \sqrt[2p]{1-x^{2p}}, \\
+\zeta =& \sqrt[2p]{1-x^{2p} -y^{2p}}.\end{split}\]
+\[p_o(\vec{q}) = \frac{2 a^2}{q_z} \int_{0}^{1} \mathrm{d} x \, \cos
+    \biggl(\frac{a q_x x}{2} \biggr) \int_{0}^{\gamma} \mathrm{d} y \,
+    \cos \biggl( \frac{a q_y y}{2} \biggr) \sin
+    \biggl( \frac{a q_z \zeta}{2} \biggr),\]
+\[P(q) = \int_0^{\tfrac{\pi}{2}} \mathrm{d} \varphi \int_0^{\tfrac{\pi}{2}}
+    \mathrm{d} \theta \, \sin (\theta) | p_o(\vec{q}) |^2\]
+\[\begin{split}\vec{q} &= q \begin{pmatrix} \cos (\varphi) \sin (\theta)\\
+\sin (\varphi) \sin(\theta)\\
+\cos (\theta)\end{pmatrix}\end{split}\]
+\[I(q) = \mathrm{scale} (\Delta \rho)^2 P(q) + \mathrm{background}.\]

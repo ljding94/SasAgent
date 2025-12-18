@@ -1,0 +1,21 @@
+# sphere — SasView 6.1.0 documentation
+
+Model: sphere
+URL: https://www.sasview.org/docs/user/models/sphere.html
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **sld**: Layer scattering length density
+  Units: 10-6Å-2
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+- **radius**: Sphere radius
+  Units: Å
+
+## Equations
+\[I(q) = \frac{\text{scale}}{V} \cdot \left[
+    3V(\Delta\rho) \cdot \frac{\sin(qr) - qr\cos(qr))}{(qr)^3}
+    \right]^2 + \text{background}\]

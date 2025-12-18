@@ -1,0 +1,44 @@
+# core_shell_ellipsoid — SasView 6.1.0 documentation
+
+Model: core_shell_ellipsoid
+URL: https://www.sasview.org/docs/user/models/core_shell_ellipsoid.html
+
+## Description
+Form factor for an spheroid ellipsoid particle with a core shell structure.
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **radius_equat_core**: Equatorial radius of core
+  Units: Å
+- **x_core**: axial ratio of core, X = r_polar/r_equatorial
+  Units: None
+- **thick_shell**: thickness of shell at equator
+  Units: Å
+- **x_polar_shell**: ratio of thickness of shell at pole to that at equator
+  Units: None
+- **sld_core**: Core scattering length density
+  Units: 10-6Å-2
+- **sld_shell**: Shell scattering length density
+  Units: 10-6Å-2
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+- **theta**: elipsoid axis to beam angle
+  Units: degree
+- **phi**: rotation about beam
+  Units: degree
+
+## Equations
+\[P(q,\alpha) = \frac{\text{scale}}{V} F^2(q,\alpha) + \text{background}\]
+\begin{align*}
+F(q,\alpha) = &f(q,R_e,R_e.x_{core},\alpha) \\
+&+ f(q,R_e + t_{shell},
+     R_e.x_{core} + t_{shell}.x_{polar shell},\alpha)
+\end{align*}
+\[f(q,R_e,R_p,\alpha) = \frac{3 \Delta \rho V (\sin(qr)
+            - qr\cos(qr)}
+            {(qr)^3}\]
+\[r = \left[ R_e^2 \sin^2 \alpha + R_p^2 \cos^2 \alpha \right]^{1/2}\]
+\[F^2(q)=\int_{0}^{\pi/2}{F^2(q,\alpha)\sin(\alpha)d\alpha}\]

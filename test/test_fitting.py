@@ -541,7 +541,7 @@ def test_end_to_end_fitting():
                 "prompt": "fit this scattering data using flexible cylinder model, the solvent is tetrahydrofuran, and sample is C15H14 polymer, find sld for both before fitting, the kuhn length is about 10, length is about 100",
             },
         ]
-        #test_cases = [test_cases[1]]
+        test_cases = [test_cases[1]]
 
         fitting_results = {}
 

@@ -1,0 +1,55 @@
+# bcc_paracrystal — SasView 6.1.0 documentation
+
+Model: bcc_paracrystal
+URL: https://www.sasview.org/docs/user/models/bcc_paracrystal.html
+
+## Description
+Body-centred cubic lattic with paracrystalline distortion
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **dnn**: Nearest neighbour distance
+  Units: Å
+- **d_factor**: Paracrystal distortion factor
+  Units: None
+- **radius**: Particle radius
+  Units: Å
+- **sld**: Particle scattering length density
+  Units: 10-6Å-2
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+- **theta**: c axis to beam angle
+  Units: degree
+- **phi**: rotation about beam
+  Units: degree
+- **psi**: rotation about c axis
+  Units: degree
+
+## Equations
+\[I(q) = \frac{\text{scale}}{V_p} V_\text{lattice} P(q) Z(q) + \text{background}\]
+\[\begin{split}\vec{a_1} &= \frac{1}{2}(-\vec{b_1} + \vec{b_2} + \vec{b_3}) \\
+\vec{a_2} &= \frac{1}{2} (\vec{b_1} - \vec{b_2} + \vec{b_3}) \\
+\vec{a_3} &= \frac{1}{2}(\vec{b_1} + \vec{b_2} -\vec{b_3}).\end{split}\]
+\[\begin{split}V_u &= |(\vec{a_1}\times \vec{a_2})\cdot\vec{a_3}|\\
+&= (\frac{a^2}{2},\frac{a^2}{2},0)\cdot(\frac{a}{2},\frac{a}{2},-\frac{a}{2})\\
+&= a^3/2\end{split}\]
+\[\begin{split}V_{lattice} &= \frac{4/3 \pi R^3}{a^3/2}\\
+&= \frac{8\pi R^3}{3a^3}\\
+&= \frac{\sqrt{3} \pi R^3}{D^3}\end{split}\]
+\[Z(\vec{q}) = \prod_{k=1}^{3}Z_k(\vec{q})\]
+\[Z_k(\vec{q}) = \frac{1-|F_k|^2}{1-2|F_k|\cos(\vec{a_k}\cdot\vec{q})+|F_k|^2}\]
+\[F_k(\vec{q}) = e^{-\frac{1}{2} \Delta a^2_k q^2} \times e^{-i\vec{q}\cdot\vec{a_k}}.\]
+\[\begin{split}Z_1(q,\theta,\phi)&=[1-e^{-q^2\Delta a^2}]/\{1-2e^{-\frac{1}{2}q^2\Delta a^2}\cos[\frac{qa}{2}(\sin\theta \cos\phi + \sin\theta \sin\phi + \cos\theta)] + e^{-q^2\Delta a^2}\}\\
+Z_2(q,\theta,\phi)&=[1-e^{-q^2\Delta a^2}]/\{1-2e^{-\frac{1}{2}q^2\Delta a^2}\cos[\frac{qa}{2}(-\sin\theta \cos\phi - \sin\theta \sin\phi + \cos\theta)] + e^{-q^2\Delta a^2}\}\\
+Z_3(q,\theta,\phi)&=[1-e^{-q^2\Delta a^2}]/\{1-2e^{-\frac{1}{2}q^2\Delta a^2}\cos[\frac{qa}{2}(-\sin\theta \cos\phi + \sin\theta \sin\phi - \cos\theta)] + e^{-q^2\Delta a^2}\}\\\end{split}\]
+\[\begin{split}Z_1(q,\theta,\phi)&=[1-e^{-q^2\Delta a^2}]/\{1-2e^{-\frac{1}{2}q^2\Delta a^2}\cos[\frac{qD}{\sqrt{3}}(\sin\theta \cos\phi + \sin\theta \sin\phi + \cos\theta)] + e^{-q^2\Delta a^2}\}\\
+Z_2(q,\theta,\phi)&=[1-e^{-q^2\Delta a^2}]/\{1-2e^{-\frac{1}{2}q^2\Delta a^2}\cos[\frac{qD}{\sqrt{3}}(-\sin\theta \cos\phi - \sin\theta \sin\phi + \cos\theta)] + e^{-q^2\Delta a^2}\}\\
+Z_3(q,\theta,\phi)&=[1-e^{-q^2\Delta a^2}]/\{1-2e^{-\frac{1}{2}q^2\Delta a^2}\cos[\frac{qD}{\sqrt{3}}(-\sin\theta \cos\phi + \sin\theta \sin\phi - \cos\theta)] + e^{-q^2\Delta a^2}\}\\\end{split}\]
+\[\frac{qa}{2\pi}=\frac{qD}{\sqrt{3}\pi}=\sqrt{h^2+k^2+l^2}.\]
+\[\begin{split}\begin{array}{lccccc}
+q/q_o          &   1   & \sqrt{2} & \sqrt{3} & \sqrt{4} & \sqrt{5} \\
+\text{Indices} & (110) &    (200) & (211)    & (220)    & (310)    \\
+\end{array}\end{split}\]

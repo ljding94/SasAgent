@@ -1,0 +1,35 @@
+# fractal — SasView 6.1.0 documentation
+
+Model: fractal
+URL: https://www.sasview.org/docs/user/models/fractal.html
+
+## Description
+Calculates the scattering from fractal-like aggregates of spheres following theTexiera reference.
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **volfraction**: volume fraction of blocks
+  Units: None
+- **radius**: radius of particles
+  Units: Å
+- **fractal_dim**: fractal dimension
+  Units: None
+- **cor_length**: cluster correlation length
+  Units: Å
+- **sld_block**: scattering length density of particles
+  Units: 10-6Å-2
+- **sld_solvent**: scattering length density of solvent
+  Units: 10-6Å-2
+
+## Equations
+\[I(q) = \phi\ V_\text{block} (\rho_\text{block}
+      - \rho_\text{solvent})^2 P(q)S(q) + \text{background}\]
+\[\begin{split}P(q)&= F(qR_0)^2 \\
+F(q)&= \frac{3 (\sin x - x \cos x)}{x^3} \\
+V_\text{particle} &= \frac{4}{3}\ \pi R_0 \\
+S(q) &= 1 + \frac{D_f\  \Gamma\!(D_f-1)}{[1+1/(q \xi)^2\  ]^{(D_f -1)/2}}
+\frac{\sin[(D_f-1) \tan^{-1}(q \xi) ]}{(q R_0)^{D_f}}\end{split}\]
+\[q = \sqrt{q_x^2 + q_y^2}\]

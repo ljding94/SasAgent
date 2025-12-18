@@ -1,0 +1,37 @@
+# lamellar_stack_caille — SasView 6.1.0 documentation
+
+Model: lamellar_stack_caille
+URL: https://www.sasview.org/docs/user/models/lamellar_stack_caille.html
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **thickness**: sheet thickness
+  Units: Å
+- **Nlayers**: Number of layers
+  Units: None
+- **d_spacing**: lamellar d-spacing of Caille S(Q)
+  Units: Å
+- **Caille_parameter**: Caille parameter
+  Units: Å-2
+- **sld**: layer scattering length density
+  Units: 10-6Å-2
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+
+## Equations
+\[I(q) = 2\pi \frac{P(q)S(q)}{q^2\delta }\]
+\[P(q) = \frac{2\Delta\rho^2}{q^2}\left(1-\cos q\delta \right)\]
+\[S(q) = 1 + 2 \sum_1^{N-1}\left(1-\frac{n}{N}\right)
+       \cos(qdn)\exp\left(-\frac{2q^2d^2\alpha(n)}{2}\right)\]
+\begin{align*}
+\alpha(n) &= \frac{\eta_{cp}}{4\pi^2} \left(\ln(\pi n)+\gamma_E\right)
+          && \\
+\gamma_E  &= 0.5772156649
+          && \text{Euler's constant} \\
+\eta_{cp} &= \frac{q_o^2k_B T}{8\pi\sqrt{K\overline{B}}}
+          && \text{Caille constant}
+\end{align*}
+\[q = \sqrt{q_x^2 + q_y^2}\]

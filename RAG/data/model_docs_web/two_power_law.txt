@@ -1,0 +1,29 @@
+# two_power_law — SasView 6.1.0 documentation
+
+Model: two_power_law
+URL: https://www.sasview.org/docs/user/models/two_power_law.html
+
+## Description
+This model calculates an empirical functional form for SAS data characterized by two power laws.
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **coefficent_1**: coefficent A in low Q region
+  Units: None
+- **crossover**: crossover location
+  Units: Å-1
+- **power_1**: power law exponent at low Q
+  Units: None
+- **power_2**: power law exponent at high Q
+  Units: None
+
+## Equations
+\[\begin{split}I(q) = \begin{cases}
+A q^{-m1} + \text{background} & q <= q_c \\
+C q^{-m2} + \text{background} & q > q_c
+\end{cases}\end{split}\]
+\[C = \frac{A q_c^{m2}}{q_c^{m1}}\]
+\[q = \sqrt{q_x^2 + q_y^2}\]

@@ -1,0 +1,19 @@
+# spinodal — SasView 6.1.0 documentation
+
+Model: spinodal
+URL: https://www.sasview.org/docs/user/models/spinodal.html
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **gamma**: Exponent
+  Units: None
+- **q_0**: Correlation peak position
+  Units: Å-1
+
+## Equations
+\[I(q) = I_{max}\frac{(1+\gamma/2)x^2}{\gamma/2+x^{2+\gamma}}+B\]
+\[I_{max} = \Lambda^3\Delta\rho^2\]
+\[I_{max} = V_z\Delta\rho^2\]

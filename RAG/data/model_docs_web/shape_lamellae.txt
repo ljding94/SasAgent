@@ -1,0 +1,6 @@
+Model: shape_lamellae
+Title: Lamellae Functions — SasView 6.1.0 documentation
+URL: https://www.sasview.org/docs/user/qtgui/Perspectives/Fitting/models/shape-lamellae.html
+
+Description:
+triaxial_ellipsoid lamellar

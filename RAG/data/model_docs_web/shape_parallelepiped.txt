@@ -1,0 +1,6 @@
+Model: shape_parallelepiped
+Title: Parallelepiped Functions — SasView 6.1.0 documentation
+URL: https://www.sasview.org/docs/user/qtgui/Perspectives/Fitting/models/shape-parallelepiped.html
+
+Description:
+sc_paracrystal core_shell_parallelepiped

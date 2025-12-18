@@ -1,0 +1,28 @@
+# correlation_length — SasView 6.1.0 documentation
+
+Model: correlation_length
+URL: https://www.sasview.org/docs/user/models/correlation_length.html
+
+## Description
+Calculates an empirical functional form for SAS data characterized
+by a low-Q signal and a high-Q signal.
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **lorentz_scale**: Lorentzian Scaling Factor
+  Units: None
+- **porod_scale**: Porod Scaling Factor
+  Units: None
+- **cor_length**: Correlation length, xi, in Lorentzian
+  Units: Å
+- **porod_exp**: Porod Exponent, n, in q^-n
+  Units: None
+- **lorentz_exp**: Lorentzian Exponent, m, in 1/( 1 + (q.xi)^m)
+  Units: None
+
+## Equations
+\[I(Q) = \frac{A}{Q^n} + \frac{C}{1 + (Q\xi)^m} + \text{background}\]
+\[q = \sqrt{q_x^2 + q_y^2}\]

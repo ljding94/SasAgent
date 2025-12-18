@@ -1,0 +1,44 @@
+# polymer_micelle — SasView 6.1.0 documentation
+
+Model: polymer_micelle
+URL: https://www.sasview.org/docs/user/models/polymer_micelle.html
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **ndensity**: Number density of micelles
+  Units: 1015cm3
+- **v_core**: Core volume
+  Units: Å3
+- **v_corona**: Corona volume
+  Units: Å3
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+- **sld_core**: Core scattering length density
+  Units: 10-6Å-2
+- **sld_corona**: Corona scattering length density
+  Units: 10-6Å-2
+- **radius_core**: Radius of core ( must be >> rg )
+  Units: Å
+- **rg**: Radius of gyration of chains in corona
+  Units: Å
+- **d_penetration**: Factor to mimic non-penetration of Gaussian chains
+  Units: None
+- **n_aggreg**: Aggregation number of the micelle
+  Units: None
+
+## Equations
+\[\begin{split}P(q) &= N^2\beta^2_s\Phi(qr)^2 + N\beta^2_cP_c(q)
+        + 2N^2\beta_s\beta_cS_{sc}(q) + N(N-1)\beta_c^2S_{cc}(q) \\
+\beta_s &= V_\text{core}(\rho_\text{core} - \rho_\text{solvent}) \\
+\beta_c &= V_\text{corona}(\rho_\text{corona} - \rho_\text{solvent})\end{split}\]
+\[\Phi(qr)= \frac{\sin(qr) - qr\cos(qr)}{(qr)^3}\]
+\[\begin{split}P_c(q) &= 2 [\exp(-Z) + Z - 1] / Z^2 \\
+Z &= (q R_g)^2\end{split}\]
+\[\begin{split}S_{sc}(q) &= \Phi(qr)\psi(Z)
+    \frac{\sin(q(r+d \cdot R_g))}{q(r+d \cdot R_g)} \\
+S_{cc}(q) &= \psi(Z)^2
+    \left[\frac{\sin(q(r+d \cdot R_g))}{q(r+d \cdot R_g)} \right]^2 \\
+\psi(Z) &= \frac{[1-\exp^{-Z}]}{Z}\end{split}\]

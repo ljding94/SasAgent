@@ -1,0 +1,48 @@
+# capped_cylinder — SasView 6.1.0 documentation
+
+Model: capped_cylinder
+URL: https://www.sasview.org/docs/user/models/capped_cylinder.html
+
+## Description
+Right circular cylinder with spherical end caps and uniform SLD
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **sld**: Cylinder scattering length density
+  Units: 10-6Å-2
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+- **radius**: Cylinder radius
+  Units: Å
+- **radius_cap**: Cap radius
+  Units: Å
+- **length**: Cylinder length
+  Units: Å
+- **theta**: cylinder axis to beam angle
+  Units: degree
+- **phi**: rotation about beam
+  Units: degree
+
+## Equations
+\[I(q) = \frac{\Delta \rho^2}{V} \left<A^2(q,\alpha).sin(\alpha)\right>\]
+\[\begin{split}A(q) =&\ \pi r^2L
+    \frac{\sin\left(\tfrac12 qL\cos\alpha\right)}
+        {\tfrac12 qL\cos\alpha}
+    \frac{2 J_1(qr\sin\alpha)}{qr\sin\alpha} \\
+    &\ + 4 \pi R^3 \int_{-h/R}^1 dt
+    \cos\left[ q\cos\alpha
+        \left(Rt + h + {\tfrac12} L\right)\right]
+    \times (1-t^2)
+    \frac{J_1\left[qR\sin\alpha \left(1-t^2\right)^{1/2}\right]}
+         {qR\sin\alpha \left(1-t^2\right)^{1/2}}\end{split}\]
+\[V = \pi r_c^2 L + 2\pi\left(\tfrac23R^3 + R^2h - \tfrac13h^3\right)\]
+\[\begin{split}R_g^2 =&\ \left[ \tfrac{12}{5}R^5
+    + R^4\left(6h+\tfrac32 L\right)
+    + R^3\left(4h^2 + L^2 + 4Lh\right)
+    + R^2\left(3Lh^2 + \tfrac32 L^2h\right) \right. \\
+    &\ \left. + \tfrac25 h^5 - \tfrac12 Lh^4 - \tfrac12 L^2h^3
+    + \tfrac14 L^3r^2 + \tfrac32 Lr^4 \right]
+    \left( 4R^3 + 6R^2h - 2h^3 + 3r^2L \right)^{-1}\end{split}\]

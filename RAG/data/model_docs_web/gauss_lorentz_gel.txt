@@ -1,0 +1,25 @@
+# gauss_lorentz_gel — SasView 6.1.0 documentation
+
+Model: gauss_lorentz_gel
+URL: https://www.sasview.org/docs/user/models/gauss_lorentz_gel.html
+
+## Description
+Gauss Lorentz Gel model of scattering from a gel structure
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **gauss_scale**: Gauss scale factor
+  Units: None
+- **cor_length_static**: Static correlation length
+  Units: Å
+- **lorentz_scale**: Lorentzian scale factor
+  Units: None
+- **cor_length_dynamic**: Dynamic correlation length
+  Units: Å
+
+## Equations
+\[I(q) = I_G(0) \exp(-q^2\Xi ^2/2) + I_L(0)/(1+q^2\xi^2)\]
+\[q = \sqrt{q_x^2 + q_y^2}\]

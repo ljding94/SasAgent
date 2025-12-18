@@ -1,0 +1,41 @@
+# rectangular_prism — SasView 6.1.0 documentation
+
+Model: rectangular_prism
+URL: https://www.sasview.org/docs/user/models/rectangular_prism.html
+
+## Description
+Rectangular parallelepiped with uniform scattering length density.
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **sld**: Parallelepiped scattering length density
+  Units: 10-6Å-2
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+- **length_a**: Shorter side of the parallelepiped
+  Units: Å
+- **b2a_ratio**: Ratio sides b/a
+  Units: None
+- **c2a_ratio**: Ratio sides c/a
+  Units: None
+- **theta**: c axis to beam angle
+  Units: degree
+- **phi**: rotation about beam
+  Units: degree
+- **psi**: rotation about c axis
+  Units: degree
+
+## Equations
+\[A_P\,(q) =
+  \frac{\sin \left( \tfrac{1}{2}qC \cos\theta \right) }{\tfrac{1}{2} qC \cos\theta}
+  \,\times\,
+  \frac{\sin \left( \tfrac{1}{2}qA \cos\theta \right) }{\tfrac{1}{2} qA \cos\theta}
+  \,\times\ ,
+  \frac{\sin \left( \tfrac{1}{2}qB \cos\theta \right) }{\tfrac{1}{2} qB \cos\theta}\]
+\[P(q) =  \frac{2}{\pi} \int_0^{\frac{\pi}{2}} \,
+\int_0^{\frac{\pi}{2}} A_P^2(q) \, \sin\theta \, d\theta \, d\phi\]
+\[I(q) = \text{scale} \times V \times (\rho_\text{p} -
+\rho_\text{solvent})^2 \times P(q)\]

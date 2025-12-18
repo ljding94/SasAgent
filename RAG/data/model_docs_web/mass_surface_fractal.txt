@@ -1,0 +1,28 @@
+# mass_surface_fractal — SasView 6.1.0 documentation
+
+Model: mass_surface_fractal
+URL: https://www.sasview.org/docs/user/models/mass_surface_fractal.html
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **fractal_dim_mass**: Mass fractal dimension
+  Units: None
+- **fractal_dim_surf**: Surface fractal dimension
+  Units: None
+- **rg_cluster**: Cluster radius of gyration
+  Units: Å
+- **rg_primary**: Primary particle radius of gyration
+  Units: Å
+
+## Equations
+\[\begin{split}I(q) &= \text{scale} \times P(q) + \text{background} \\
+P(q) &= \left\{ \left[ 1+(q^2a)\right]^{D_m/2} \times
+               \left[ 1+(q^2b)\right]^{(6-D_s-D_m)/2}
+       \right\}^{-1} \\
+a &= R_{g}^2/(3D_m/2) \\
+b &= r_{g}^2/[-3(D_s+D_m-6)/2] \\
+\text{scale} &= \text{scale factor}
+    \times NV^2 (\rho_\text{particle} - \rho_\text{solvent})^2\end{split}\]

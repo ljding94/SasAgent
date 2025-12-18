@@ -1,0 +1,26 @@
+# guinier_porod — SasView 6.1.0 documentation
+
+Model: guinier_porod
+URL: https://www.sasview.org/docs/user/models/guinier_porod.html
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **rg**: Radius of gyration
+  Units: Å
+- **s**: Dimension variable
+  Units: None
+- **porod_exp**: Porod exponent
+  Units: None
+
+## Equations
+\[\begin{split}I(q) = \begin{cases}
+\frac{G}{Q^s}\ \exp{\left[\frac{-Q^2R_g^2}{3-s} \right]} & Q \leq Q_1 \\
+D / Q^m  & Q \geq Q_1
+\end{cases}\end{split}\]
+\[Q_1 = \frac{1}{R_g} \sqrt{(m-s)(3-s)/2}\]
+\[ \begin{align}\begin{aligned}D &= G \ \exp{ \left[ \frac{-Q_1^2 R_g^2}{3-s} \right]} \ Q_1^{m-s}\\  &= \frac{G}{R_g^{m-s}} \ \exp \left[ -\frac{m-s}{2} \right]
+      \left( \frac{(m-s)(3-s)}{2} \right)^{\frac{m-s}{2}}\end{aligned}\end{align} \]
+\[q = \sqrt{q_x^2+q_y^2}\]

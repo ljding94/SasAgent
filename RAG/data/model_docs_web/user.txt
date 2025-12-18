@@ -1,0 +1,6 @@
+Model: user
+Title: SasView User Documentation — SasView 6.1.0 documentation
+URL: https://www.sasview.org/docs/user/user.html
+
+Description:
+Note In Windows use [Alt]-[Cursor left] to return to the previous page SasView Documentation Index

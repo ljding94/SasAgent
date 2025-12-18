@@ -1,0 +1,25 @@
+# lamellar — SasView 6.1.0 documentation
+
+Model: lamellar
+URL: https://www.sasview.org/docs/user/models/lamellar.html
+
+## Description
+Lyotropic lamellar phase with uniform SLD and random distribution
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **thickness**: total layer thickness
+  Units: Å
+- **sld**: Layer scattering length density
+  Units: 10-6Å-2
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+
+## Equations
+\[I(q) = \text{scale}\frac{2\pi P(q)}{q^2\delta} + \text{background}\]
+\[P(q) = \frac{2\Delta\rho^2}{q^2}(1-\cos(q\delta))
+     = \frac{4\Delta\rho^2}{q^2}\sin^2\left(\frac{q\delta}{2}\right)\]
+\[q = \sqrt{q_x^2 + q_y^2}\]

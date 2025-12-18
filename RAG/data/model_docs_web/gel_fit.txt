@@ -1,0 +1,27 @@
+# gel_fit — SasView 6.1.0 documentation
+
+Model: gel_fit
+URL: https://www.sasview.org/docs/user/models/gel_fit.html
+
+## Description
+Fitting using fine-scale polymer distribution in a gel.
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **guinier_scale**: Guinier term scale
+  Units: cm^-1
+- **lorentz_scale**: Lorentz term scale
+  Units: cm^-1
+- **rg**: Radius of gyration
+  Units: Å
+- **fractal_dim**: Fractal exponent
+  Units: None
+- **cor_length**: Correlation length
+  Units: Å
+
+## Equations
+\[I(Q) \approx \frac{I_L(0)}{\left(1+\left[(D+1)/3\right]Q^2\xi^2
+\right)^{D/2}} + I_G(0) \cdot \exp\left( -Q^2R_{g}^2/3\right) + B\]

@@ -1,0 +1,6 @@
+Model: shape_ellipsoid
+Title: Ellipsoid Functions — SasView 6.1.0 documentation
+URL: https://www.sasview.org/docs/user/qtgui/Perspectives/Fitting/models/shape-ellipsoid.html
+
+Description:
+stacked_disks core_shell_ellipsoid

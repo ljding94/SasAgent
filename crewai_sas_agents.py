@@ -41,7 +41,8 @@ except ImportError as e:
 # RAG system import
 try:
     import sys
-    sys.path.append('/Users/ldq/Work/SasAgent/RAG')
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.append(os.path.join(script_dir, 'RAG'))
     from sasview_rag_system import create_rag_tool
     RAG_AVAILABLE = True
     print("✅ RAG system available")
@@ -634,7 +635,7 @@ class SasViewFittingTool(BaseTool):
                 "chi_squared": fit_data.get('chi_squared', 0),
                 "chi_squared_reduced": fit_data['chi_squared_reduced'],
                 "fitted_parameters": fit_data['parameters'],
-                "parameter_errors": fit_data.get('parameter_errors', {}),
+                "parameter_errors": fit_data.get('uncertainties', {}),
                 "fixed_parameters": fixed_params or {},
                 "report": result['report'],
                 "plot_file": result.get('plot_file', ''),

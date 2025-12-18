@@ -1,0 +1,25 @@
+# hayter_msa — SasView 6.1.0 documentation
+
+Model: hayter_msa
+URL: https://www.sasview.org/docs/user/models/hayter_msa.html
+
+## Description
+Hayter-Penfold Rescaled Mean Spherical Approximation (RMSA) structure factor for charged spheres
+
+## Parameters
+- **radius_effective**: effective radius of charged sphere
+  Units: Å
+- **volfraction**: volume fraction of spheres
+  Units: None
+- **charge**: charge on sphere (in electrons)
+  Units: e
+- **temperature**: temperature, in Kelvin, for Debye length calculation
+  Units: K
+- **concentration_salt**: conc of salt, moles/litre, 1:1 electolyte, for Debye length
+  Units: M
+- **dielectconst**: dielectric constant (relative permittivity) of solvent, kappa, default water, for Debye length
+  Units: None
+
+## Equations
+\[\kappa = 87.740 - 0.40008 T + 9.398x10^{-4} T^2 - 1.410x10^{-6} T^3\]
+\[q = \sqrt{q_x^2 + q_y^2}\]

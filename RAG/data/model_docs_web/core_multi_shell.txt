@@ -1,0 +1,28 @@
+# core_multi_shell — SasView 6.1.0 documentation
+
+Model: core_multi_shell
+URL: https://www.sasview.org/docs/user/models/core_multi_shell.html
+
+## Description
+This model provides the scattering from a spherical core with 1 to 10  concentric shell structures. The SLDs of the core and each shell are  individually specified.
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **sld_core**: Core scattering length density
+  Units: 10-6Å-2
+- **radius**: Radius of the core
+  Units: Å
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+- **n**: number of shells
+  Units: None
+- **sld[n]**: scattering length density of shell k
+  Units: 10-6Å-2
+- **thickness[n]**: Thickness of shell k
+  Units: Å
+
+## Equations
+\[q = \sqrt{q_x^2 + q_y^2}\]

@@ -1,0 +1,21 @@
+# star_polymer — SasView 6.1.0 documentation
+
+Model: star_polymer
+URL: https://www.sasview.org/docs/user/models/star_polymer.html
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **rg_squared**: Ensemble radius of gyration SQUARED of the full polymer
+  Units: Å2
+- **arms**: Number of arms in the model (integer)
+  Units: None
+
+## Equations
+\[I(q) = \frac{2}{fv^2}\left[ v-1+\exp(-v)+\frac{f-1}{2}
+       \left[ 1-\exp(-v)\right]^2\right]\]
+\[v=\frac{uf}{(3f-2)}\]
+\[u = \left\langle R_{g}^2\right\rangle q^2\]
+\[R_{arm}^2 = \frac{f}{3f-2} R_{g}^2\]

@@ -1,0 +1,6 @@
+Model: shape_independent
+Title: Shape-Independent Functions — SasView 6.1.0 documentation
+URL: https://www.sasview.org/docs/user/qtgui/Perspectives/Fitting/models/shape-independent.html
+
+Description:
+vesicle be_polyelectrolyte

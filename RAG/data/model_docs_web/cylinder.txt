@@ -1,0 +1,37 @@
+# cylinder — SasView 6.1.0 documentation
+
+Model: cylinder
+URL: https://www.sasview.org/docs/user/models/cylinder.html
+
+## Description
+Right circular cylinder with uniform scattering length density.
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **sld**: Cylinder scattering length density
+  Units: 10-6Å-2
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+- **radius**: Cylinder radius
+  Units: Å
+- **length**: Cylinder length
+  Units: Å
+- **theta**: cylinder axis to beam angle
+  Units: degree
+- **phi**: rotation about beam
+  Units: degree
+
+## Equations
+\[I(q,\alpha) = \frac{\text{scale}}{V} F^2(q,\alpha) + \text{background}\]
+\[F(q,\alpha) = 2 (\Delta \rho) V
+       \frac{\sin \left(\tfrac12 qL\cos\alpha \right)}
+            {\tfrac12 qL \cos \alpha}
+       \frac{J_1 \left(q R \sin \alpha\right)}{q R \sin \alpha}\]
+\[P(q)=F^2(q)=\int_{0}^{\pi/2}{F^2(q,\alpha)\sin(\alpha)d\alpha}\]
+\[I(q) = \frac{\text{scale}}{V}
+    \int_0^{\pi/2} F^2(q,\alpha) \sin \alpha\ d\alpha + \text{background}\]
+\[P(q) = \int_0^{\pi/2} d\phi
+    \int_0^\pi p(\theta) P_0(q,\theta) \sin \theta\ d\theta\]

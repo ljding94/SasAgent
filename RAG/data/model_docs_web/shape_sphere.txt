@@ -1,0 +1,6 @@
+Model: shape_sphere
+Title: Sphere Functions — SasView 6.1.0 documentation
+URL: https://www.sasview.org/docs/user/qtgui/Perspectives/Fitting/models/shape-sphere.html
+
+Description:
+rectangular_prism adsorbed_layer

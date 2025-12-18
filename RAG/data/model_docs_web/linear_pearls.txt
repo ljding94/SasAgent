@@ -1,0 +1,28 @@
+# linear_pearls — SasView 6.1.0 documentation
+
+Model: linear_pearls
+URL: https://www.sasview.org/docs/user/models/linear_pearls.html
+
+## Description
+Linear pearls model of scattering from spherical pearls.
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **radius**: Radius of the pearls
+  Units: Å
+- **edge_sep**: Length of the string segment - surface to surface
+  Units: Å
+- **num_pearls**: Number of the pearls
+  Units: None
+- **sld**: SLD of the pearl spheres
+  Units: 10-6Å-2
+- **sld_solvent**: SLD of the solvent
+  Units: 10-6Å-2
+
+## Equations
+\[P(Q) = \frac{\text{scale}}{V}\left[ m_{p}^2
+\left(N+2\sum_{n-1}^{N-1}(N-n)\frac{\sin(qnl)}{qnl}\right)
+\left( 3\frac{\sin(qR)-qR\cos(qR)}{(qr)^3}\right)^2\right]\]

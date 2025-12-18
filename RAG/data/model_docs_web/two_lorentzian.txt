@@ -1,0 +1,29 @@
+# two_lorentzian — SasView 6.1.0 documentation
+
+Model: two_lorentzian
+URL: https://www.sasview.org/docs/user/models/two_lorentzian.html
+
+## Description
+This model calculates an empirical functional form for SAS data characterized by two Lorentzian-type functions.
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **lorentz_scale_1**: First power law scale factor
+  Units: None
+- **lorentz_length_1**: First Lorentzian screening length
+  Units: Å
+- **lorentz_exp_1**: First exponent of power law
+  Units: None
+- **lorentz_scale_2**: Second scale factor for broad Lorentzian peak
+  Units: None
+- **lorentz_length_2**: Second Lorentzian screening length
+  Units: Å
+- **lorentz_exp_2**: Second exponent of power law
+  Units: None
+
+## Equations
+\[I(q) = \frac{A}{1 +(Q\xi_1)^n} + \frac{C}{1 +(Q\xi_2)^m} + \text{B}\]
+\[q = \sqrt{q_x^2 + q_y^2}\]

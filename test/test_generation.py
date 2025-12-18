@@ -230,7 +230,7 @@ def test_end_to_end_generation():
             },
             {
                 "name": "ellipsoid",
-                "prompt": "Generate scattering data of ellipsoid",
+                "prompt": "Generate scattering data of ellipsoid with background 1.0",
                 "expected_task": "generation",
             },
             {
@@ -249,7 +249,7 @@ def test_end_to_end_generation():
         unified_results = {}
         output_folder = "test/test_data/generation"
 
-        for test_case in [test_prompts[1]]:
+        for test_case in [test_prompts[3]]:
             print(f"\n📋 Testing: {test_case['name']}")
             print(f"   Prompt: {test_case['prompt']}")
             print(f"   Expected: {test_case['expected_task']} task")

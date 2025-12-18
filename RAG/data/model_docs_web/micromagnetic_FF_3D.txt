@@ -1,0 +1,51 @@
+# micromagnetic_FF_3D — SasView 6.1.0 documentation
+
+Model: micromagnetic_FF_3D
+URL: https://www.sasview.org/docs/user/models/micromagnetic_FF_3D.html
+
+## Description
+Field-dependent magnetic microstructure around imperfections in bulk ferromagnets
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **radius**: Structural radius of the core
+  Units: Å
+- **thickness**: Structural thickness of shell
+  Units: Å
+- **nuc_sld_core**: Core scattering length density
+  Units: 10-6Å-2
+- **nuc_sld_shell**: Scattering length density of shell
+  Units: 10-6Å-2
+- **nuc_sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+- **mag_sld_core**: Magnetic scattering length density of core
+  Units: 10-6Å-2
+- **mag_sld_shell**: Magnetic scattering length density of shell
+  Units: 10-6Å-2
+- **mag_sld_solvent**: Magnetic scattering length density of solvent
+  Units: 10-6Å-2
+- **hk_sld_core**: Anisotropy field of defect
+  Units: 10-6Å-2
+- **Hi**: Effective field inside the material
+  Units: T
+- **Ms**: Volume averaged saturation magnetisation
+  Units: T
+- **A**: Average exchange stiffness constant
+  Units: pJ/m
+- **D**: Average DMI constant
+  Units: mJ/m^2
+- **up_i**: Polarisation incoming beam
+  Units: None
+- **up_f**: Polarisation outgoing beam
+  Units: None
+- **alpha**: Inclination of field to neutron beam
+  Units: None
+- **beta**: Rotation of field around neutron beam
+  Units: None
+
+## Equations
+\[I(\mathbf{Q}) = I_{nuc} + I_{mag}(\mathbf{Q},H),\]
+\[I_{mag}(\mathbf{Q},H)= S_K(Q) R_K(\mathbf{Q}, H_i) + S_M(Q) R_M(\mathbf{Q}, H_i),\]

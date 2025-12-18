@@ -1,0 +1,32 @@
+# unified_power_Rg — SasView 6.1.0 documentation
+
+Model: unified_power_Rg
+URL: https://www.sasview.org/docs/user/models/unified_power_Rg.html
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **level**: Level number
+  Units: None
+- **rg[level]**: Radius of gyration
+  Units: Å
+- **power[level]**: Power
+  Units: None
+- **B[level]**: 
+  Units: cm-1
+- **G[level]**: 
+  Units: cm-1
+
+## Equations
+\[I(q) = \text{scale} / q + \text{background}\]
+\[I(q) = \text{background}
++ \sum_{i=1}^N \Bigl[
+    G_i \exp\Bigl(-\frac{q^2R_{gi}^2}{3}\Bigr)
+   + B_i \exp\Bigl(-\frac{q^2R_{g(i+1)}^2}{3}\Bigr)
+         \Bigl(\frac{1}{q_i^*}\Bigr)^{P_i} \Bigr]\]
+\[q_i^* = q \left[\operatorname{erf}
+        \left(\frac{q R_{gi}}{\sqrt{6}}\right)
+    \right]^{-3}\]
+\[q = \sqrt{q_x^2 + q_y^2}\]

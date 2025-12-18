@@ -1,0 +1,39 @@
+# fractal_core_shell — SasView 6.1.0 documentation
+
+Model: fractal_core_shell
+URL: https://www.sasview.org/docs/user/models/fractal_core_shell.html
+
+## Description
+Scattering from a fractal structure formed from core shell spheres
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **radius**: Sphere core radius
+  Units: Å
+- **thickness**: Sphere shell thickness
+  Units: Å
+- **sld_core**: Sphere core scattering length density
+  Units: 10-6Å-2
+- **sld_shell**: Sphere shell scattering length density
+  Units: 10-6Å-2
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+- **volfraction**: Volume fraction of building block spheres
+  Units: None
+- **fractal_dim**: Fractal dimension
+  Units: None
+- **cor_length**: Correlation length of fractal-like aggregates
+  Units: Å
+
+## Equations
+\[I(q) = P(q)S(q) + \text{background}\]
+\[\begin{split}P(q) &= \frac{\phi}{V_s}\left[3V_c(\rho_c-\rho_s)
+\frac{\sin(qr_c)-qr_c\cos(qr_c)}{(qr_c)^3}+
+3V_s(\rho_s-\rho_{solv})
+\frac{\sin(qr_s)-qr_s\cos(qr_s)}{(qr_s)^3}\right]^2 \\
+S(q) &= 1 + \frac{D_f\ \Gamma\!(D_f-1)}{[1+1/(q\xi)^2]^{(D_f-1)/2}}
+\frac{\sin[(D_f-1)\tan^{-1}(q\xi)]}{(qr_s)^{D_f}}\end{split}\]
+\[q = \sqrt{q_x^2 + q_y^2}\]

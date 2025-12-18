@@ -1,0 +1,26 @@
+# mass_fractal — SasView 6.1.0 documentation
+
+Model: mass_fractal
+URL: https://www.sasview.org/docs/user/models/mass_fractal.html
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **radius**: Particle radius
+  Units: Å
+- **fractal_dim_mass**: Mass fractal dimension
+  Units: None
+- **cutoff_length**: Cut-off length
+  Units: Å
+
+## Equations
+\[I(q) = scale \times P(q)S(q) + background\]
+\[P(q) = F(qR)^2\]
+\[F(x) = \frac{3\left[sin(x)-xcos(x)\right]}{x^3}\]
+\[S(q) = \frac{\Gamma(D_m-1)\zeta^{D_m-1}}{\left[1+(q\zeta)^2
+\right]^{(D_m-1)/2}}
+\frac{sin\left[(D_m - 1) tan^{-1}(q\zeta) \right]}{q}\]
+\[scale = scale\_factor \times NV^2(\rho_\text{particle} - \rho_\text{solvent})^2\]
+\[V = \frac{4}{3}\pi R^3\]

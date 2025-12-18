@@ -1,0 +1,25 @@
+# squarewell — SasView 6.1.0 documentation
+
+Model: squarewell
+URL: https://www.sasview.org/docs/user/models/squarewell.html
+
+## Description
+Square well structure factor with Mean Spherical Approximation closure
+
+## Parameters
+- **radius_effective**: effective radius of hard sphere
+  Units: Å
+- **volfraction**: volume fraction of spheres
+  Units: None
+- **welldepth**: depth of well, epsilon
+  Units: kT
+- **wellwidth**: width of well in diameters (=2R) units, must be > 1
+  Units: diameters
+
+## Equations
+\[\begin{split}U(r) = \begin{cases}
+\infty & r < 2R \\
+-\epsilon & 2R \leq r < 2R\lambda \\
+0 & r \geq 2R\lambda
+\end{cases}\end{split}\]
+\[q = \sqrt{q_x^2 + q_y^2}\]

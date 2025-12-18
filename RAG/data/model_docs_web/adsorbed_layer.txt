@@ -1,0 +1,32 @@
+# adsorbed_layer — SasView 6.1.0 documentation
+
+Model: adsorbed_layer
+URL: https://www.sasview.org/docs/user/models/adsorbed_layer.html
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **second_moment**: Second moment of polymer distribution
+  Units: Å
+- **adsorbed_amount**: Adsorbed amount of polymer
+  Units: mg·m-2
+- **density_shell**: Bulk density of polymer in the shell
+  Units: g·cm-3
+- **radius**: Core particle radius
+  Units: Å
+- **volfraction**: Core particle volume fraction
+  Units: None
+- **sld_shell**: Polymer shell SLD
+  Units: 10-6Å-2
+- **sld_solvent**: Solvent SLD
+  Units: 10-6Å-2
+
+## Equations
+\[I(q) = \text{scale} \cdot (\rho_\text{poly}-\rho_\text{solvent})^2
+    \left[
+        \frac{6\pi\phi_\text{core}}{Q^2}
+        \frac{\Gamma^2}{\delta_\text{poly}^2R_\text{core}}
+        \exp(-Q^2\sigma^2)
+    \right] + \text{background}\]

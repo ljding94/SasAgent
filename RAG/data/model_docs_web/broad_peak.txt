@@ -1,0 +1,28 @@
+# broad_peak — SasView 6.1.0 documentation
+
+Model: broad_peak
+URL: https://www.sasview.org/docs/user/models/broad_peak.html
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **porod_scale**: Power law scale factor
+  Units: None
+- **porod_exp**: Exponent of power law
+  Units: None
+- **peak_scale**: Scale factor for broad peak
+  Units: None
+- **correlation_length**: screening length
+  Units: Å
+- **peak_pos**: Peak position in q
+  Units: Å-1
+- **width_exp**: Exponent of peak width
+  Units: None
+- **shape_exp**: Exponent of peak shape
+  Units: None
+
+## Equations
+\[I(q) = \frac{A}{q^n} + \frac{C}{1 + (|q - q_0|\xi)^m}^p + B\]
+\[q = \sqrt{q_x^2 + q_y^2}\]

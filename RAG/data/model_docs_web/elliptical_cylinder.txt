@@ -1,0 +1,33 @@
+# elliptical_cylinder — SasView 6.1.0 documentation
+
+Model: elliptical_cylinder
+URL: https://www.sasview.org/docs/user/models/elliptical_cylinder.html
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **radius_minor**: Ellipse minor radius
+  Units: Å
+- **axis_ratio**: Ratio of major radius over minor radius
+  Units: None
+- **length**: Length of the cylinder
+  Units: Å
+- **sld**: Cylinder scattering length density
+  Units: 10-6Å-2
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+- **theta**: cylinder axis to beam angle
+  Units: degree
+- **phi**: rotation about beam
+  Units: degree
+- **psi**: rotation about cylinder axis
+  Units: degree
+
+## Equations
+\[I(\vec q)=\frac{1}{V_\text{cyl}}\int{d\psi}\int{d\phi}\int{
+    p(\theta,\phi,\psi)F^2(\vec q,\alpha,\psi)\sin(\alpha)d\alpha}\]
+\[F(q,\alpha,\psi) = 2\frac{J_1(a)\sin(b)}{ab}\]
+\[ \begin{align}\begin{aligned}a = qr'\sin(\alpha)\\b = q\frac{L}{2}\cos(\alpha)\\r'=\frac{r_{minor}}{\sqrt{2}}\sqrt{(1+\nu^{2}) + (1-\nu^{2})cos(\psi)}\end{aligned}\end{align} \]
+\[P(q) = \text{scale}  <F^2> / V\]

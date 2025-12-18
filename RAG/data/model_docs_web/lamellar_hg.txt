@@ -1,0 +1,30 @@
+# lamellar_hg — SasView 6.1.0 documentation
+
+Model: lamellar_hg
+URL: https://www.sasview.org/docs/user/models/lamellar_hg.html
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **length_tail**: Tail thickness ( total = H+T+T+H)
+  Units: Å
+- **length_head**: Head thickness
+  Units: Å
+- **sld**: Tail scattering length density
+  Units: 10-6Å-2
+- **sld_head**: Head scattering length density
+  Units: 10-6Å-2
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+
+## Equations
+\[I(q) = 2\pi\frac{\text{scale}}{2(\delta_H + \delta_T)}  P(q) \frac{1}{q^2}\]
+\[P(q) = \frac{4}{q^2}
+    \left\lbrace
+        \Delta \rho_H
+        \left[\sin[q(\delta_H + \delta_T)\ - \sin(q\delta_T)\right]
+        + \Delta\rho_T\sin(q\delta_T)
+    \right\rbrace^2\]
+\[q = \sqrt{q_x^2 + q_y^2}\]

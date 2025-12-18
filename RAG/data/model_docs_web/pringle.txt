@@ -1,0 +1,37 @@
+# pringle — SasView 6.1.0 documentation
+
+Model: pringle
+URL: https://www.sasview.org/docs/user/models/pringle.html
+
+## Description
+The Pringle model provides the form factor, \(P(q)\), for a ‘pringle’ or ‘saddle-shaped’ disc that is bent in two directions.
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **radius**: Pringle radius
+  Units: Å
+- **thickness**: Thickness of pringle
+  Units: Å
+- **alpha**: Curvature parameter alpha
+  Units: None
+- **beta**: Curvature paramter beta
+  Units: None
+- **sld**: Pringle sld
+  Units: 10-6Å-2
+- **sld_solvent**: Solvent sld
+  Units: 10-6Å-2
+
+## Equations
+\[P(q) = (\Delta \rho )^2 V \int^{\pi/2}_0 d\psi \sin{\psi} sinc^2
+\left( \frac{qd\cos{\psi}}{2} \right)
+\left[ \left( S^2_0+C^2_0\right) + 2\sum_{n=1}^{\infty}
+ \left( S^2_n+C^2_n\right) \right]\]
+\[C_n = \frac{1}{r^2}\int^{R}_{0} r dr\cos(qr^2\alpha \cos{\psi})
+J_n\left( qr^2\beta \cos{\psi}\right)
+J_{2n}\left( qr \sin{\psi}\right)\]
+\[S_n = \frac{1}{r^2}\int^{R}_{0} r dr\sin(qr^2\alpha \cos{\psi})
+J_n\left( qr^2\beta \cos{\psi}\right)
+J_{2n}\left( qr \sin{\psi}\right)\]

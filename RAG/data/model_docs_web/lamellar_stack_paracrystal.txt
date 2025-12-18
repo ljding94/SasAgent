@@ -1,0 +1,38 @@
+# lamellar_stack_paracrystal — SasView 6.1.0 documentation
+
+Model: lamellar_stack_paracrystal
+URL: https://www.sasview.org/docs/user/models/lamellar_stack_paracrystal.html
+
+## Description
+Random lamellar sheet with paracrystal structure factor
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **thickness**: sheet thickness
+  Units: Å
+- **Nlayers**: Number of layers
+  Units: None
+- **d_spacing**: lamellar spacing of paracrystal stack
+  Units: Å
+- **sigma_d**: Sigma (polydispersity) of the lamellar spacing
+  Units: Å
+- **sld**: layer scattering length density
+  Units: 10-6Å-2
+- **sld_solvent**: Solvent scattering length density
+  Units: 10-6Å-2
+
+## Equations
+\[I(q) = 2\pi\Delta\rho^2\Gamma_m\frac{P_\text{bil}(q)}{q^2} Z_N(q)\]
+\[P_\text{bil}(q) = \left(\frac{\sin(qt/2)}{qt/2}\right)^2\]
+\[Z_N(q) = \frac{1 - w^2}{1 + w^2 - 2w \cos(q \langle D \rangle)}
+    + x_N S_N + (1 - x_N) S_{N+1}\]
+\[S_N(q) = \frac{a_N}{N[1 + w^2 - 2 w \cos(q \langle D \rangle)]^2}\]
+\[\begin{split}a_N &= 4w^2 - 2(w^3 + w) \cos(q \langle D \rangle) \\
+    &\quad - 4w^{N+2}\cos(Nq \langle D \rangle)
+    + 2 w^{N+3}\cos[(N-1)q \langle D \rangle]
+    + 2w^{N+1}\cos[(N+1)q \langle D \rangle]\end{split}\]
+\[N_L = x_N N + (1 - x_N)(N+1)\]
+\[q = \sqrt{q_x^2 + q_y^2}\]

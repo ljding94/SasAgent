@@ -1,0 +1,36 @@
+# be_polyelectrolyte — SasView 6.1.0 documentation
+
+Model: be_polyelectrolyte
+URL: https://www.sasview.org/docs/user/models/be_polyelectrolyte.html
+
+## Description
+Polyelectrolyte with the RPA expression derived by Borue and Erukhimovich
+
+## Parameters
+- **scale**: Scale factor or Volume fraction
+  Units: None
+- **background**: Source background
+  Units: cm-1
+- **contrast_factor**: Contrast factor of the polymer
+  Units: barns
+- **bjerrum_length**: Bjerrum length
+  Units: Å
+- **virial_param**: Virial parameter
+  Units: Å3
+- **monomer_length**: Monomer length
+  Units: Å
+- **salt_concentration**: Concentration of monovalent salt
+  Units: mol/L
+- **ionization_degree**: Degree of ionization
+  Units: None
+- **polymer_concentration**: Polymer molar concentration
+  Units: mol/L
+
+## Equations
+\[\begin{split}I(q) &= K\frac{q^2+k^2}{4\pi L_b\alpha ^2}
+    \frac{1}{1+r_{0}^4(q^2+k^2)(q^2-12hC_a/b^2)} + \text{background} \\
+k^2 &= 4\pi L_b(2C_s + \alpha C_a) \\
+r_{0}^2 &= \frac{b}{\alpha \sqrt{C_a 48\pi L_b}}\end{split}\]
+\[\begin{split}K &= a^2 \\
+a &= b_p - (v_p/v_s) b_s\end{split}\]
+\[q = \sqrt{q_x^2 + q_y^2}\]
