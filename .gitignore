@@ -5,7 +5,6 @@ RAG/__pycache__/
 SAS/__pycache__/
 !test
 test/__pycache__
-test/test_data
 !data
 data/*
 !*.py

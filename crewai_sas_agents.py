@@ -92,6 +92,9 @@ def setup_llm(api_key: str = None, model: str = None):
 
     # Use provided model or fall back to default
     final_model = model or "openai/gpt-4o-mini"
+    final_model = model or "google/gemini-2.5-flash"
+
+    print("using model:", final_model)
 
     # For OpenRouter, we need to specify the provider as "openrouter" for LiteLLM
     llm = LLM(
@@ -874,8 +877,7 @@ class SyntheticDataTool(BaseTool):
                     "params": params,
                     "output_folder": output_folder,
                     "noise_level": 0.03,  # 3% noise
-                    "plot": True,
-                    "include_uncertainty": True
+                    "plot": True
                 }
 
                 # Add q-range if specified

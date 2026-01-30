@@ -59,7 +59,7 @@ def get_model_defaults(model_name):
         return {"radius": 50, "sld": 1, "sld_solvent": 0, "background": 0.01}
 
 
-def generate_sasview_data(model_name, params=None, output_folder="data", noise_level=0.02, plot=True, include_uncertainty=True, q_values=None):
+def generate_sasview_data(model_name, params=None, output_folder="data", noise_level=0.02, plot=True, q_values=None):
     """
     Simple wrapper to generate I(q) data for any SasView model.
 
@@ -68,9 +68,8 @@ def generate_sasview_data(model_name, params=None, output_folder="data", noise_l
         params: Model parameters dict. If None, uses model's default values.
                 Include 'background' in params to set background level (default: 0.01)
         output_folder: Output directory for CSV and plots
-        noise_level: Gaussian noise level as fraction (0.02 = 2% noise)
+        noise_level: Deprecated. Noise is no longer added to synthetic data.
         plot: Whether to generate and save a plot
-        include_uncertainty: Whether to include uncertainty column in CSV
         q_values: Custom q array. If None, uses default logspace range
 
     Returns:
@@ -106,44 +105,20 @@ def generate_sasview_data(model_name, params=None, output_folder="data", noise_l
         print(f"Parameters used: {params}")
         raise e
 
-    # Add Gaussian noise if requested
-    if noise_level > 0:
-        noise = np.random.normal(0, noise_level, len(intensity_clean))
-        intensity_noisy = intensity_clean * (1 + noise)
-        # Ensure positive values
-        intensity_noisy = np.maximum(intensity_noisy, 0.01 * intensity_clean.min())
-        uncertainty = noise_level * intensity_clean
-        print(f"Added {noise_level*100:.1f}% Gaussian noise")
-    else:
-        intensity_noisy = intensity_clean.copy()
-        uncertainty = 0.01 * intensity_clean
-        print("Generated noise-free synthetic data")
-
-    # Ensure uncertainties are never zero
-    uncertainty = np.maximum(uncertainty, 0.001 * np.abs(intensity_noisy))
+    # Noise removed: always use clean intensity
+    intensity_noisy = intensity_clean.copy()
+    print("Generated noise-free synthetic data")
 
     # Save to CSV
     csv_path = os.path.join(output_folder, f"synthetic_{model_name}.csv")
-    if include_uncertainty:
-        np.savetxt(csv_path, np.column_stack((q, intensity_noisy, uncertainty)), delimiter=",", header="q,I,dI", comments="#")
-        print("Saved data with uncertainties: q, I(q), dI columns")
-    else:
-        np.savetxt(csv_path, np.column_stack((q, intensity_noisy)), delimiter=",", header="q,I", comments="#")
-        print("Saved data without uncertainties: q, I(q) columns")
+    np.savetxt(csv_path, np.column_stack((q, intensity_noisy)), delimiter=",", header="q,I", comments="#")
+    print(f"Saved data: q, I(q) columns -> {csv_path}")
 
     # Generate plot if requested
     if plot:
         plt.figure(figsize=(10 / 3 * 1.0, 10 / 3 * 0.8))
 
-        if include_uncertainty and noise_level > 0:
-            # Plot with error bars
-            error_indices = np.arange(0, len(q), len(q) // 50)  # Show ~50 error bars
-            plt.plot(q, intensity_noisy, "o", markersize=3, alpha=0.7, label=f"Synthetic {model_name} data")
-            plt.errorbar(q[error_indices], intensity_noisy[error_indices], yerr=uncertainty[error_indices], fmt="none", alpha=0.5, capsize=2)
-            if noise_level > 0:
-                plt.plot(q, intensity_clean, "-", lw=1, alpha=1, label="Clean data")
-        else:
-            plt.plot(q, intensity_noisy, "o-", lw=1, markersize=2, label=f"Synthetic {model_name} data")
+        plt.plot(q, intensity_noisy, "-", lw=1.2, label=f"Synthetic {model_name} data")
 
         plt.xlabel("q (1/Å)", fontsize=9, labelpad=0)
         plt.ylabel("I(q)", fontsize=9, labelpad=0)
@@ -169,7 +144,7 @@ def generate_sasview_data(model_name, params=None, output_folder="data", noise_l
 
 
 # Keep the original function for backward compatibility
-def generate_synthetic_data(model_name="sphere", params=None, output_folder="data", noise_level=0.02, plot=True, include_uncertainty=True, q_values=None, background=None):
+def generate_synthetic_data(model_name="sphere", params=None, output_folder="data", noise_level=0.02, plot=True, q_values=None, background=None):
     """
     Generate synthetic SAS data using SasModels with Gaussian noise
     (Backward compatibility wrapper for generate_sasview_data)
@@ -183,10 +158,10 @@ def generate_synthetic_data(model_name="sphere", params=None, output_folder="dat
         params = params.copy()  # Don't modify the original dict
         params["background"] = background
 
-    return generate_sasview_data(model_name, params, output_folder, noise_level, plot, include_uncertainty, q_values)
+    return generate_sasview_data(model_name, params, output_folder, noise_level, plot, q_values)
 
 
-def generate_multiple_synthetic_datasets(models=None, output_folder="data", noise_level=0.02, plot=True, include_uncertainty=True, background=None):
+def generate_multiple_synthetic_datasets(models=None, output_folder="data", noise_level=0.02, plot=True, background=None):
     """
     Generate synthetic data for multiple models with Gaussian noise
 
@@ -195,7 +170,6 @@ def generate_multiple_synthetic_datasets(models=None, output_folder="data", nois
         output_folder: Output directory
         noise_level: Gaussian noise level as fraction (0.02 = 2% noise)
         plot: Whether to generate plots
-        include_uncertainty: Whether to include uncertainty columns
         background: Background level for all models (if None, uses 0.01)
                    Note: Deprecated - include 'background' in individual model params instead
 
@@ -223,7 +197,6 @@ def generate_multiple_synthetic_datasets(models=None, output_folder="data", nois
                 output_folder=output_folder,
                 noise_level=noise_level,
                 plot=plot,
-                include_uncertainty=include_uncertainty,
                 background=background,  # Still support legacy parameter
             )
             results[model_name] = (csv_path, ground_truth)
@@ -308,7 +281,7 @@ try:
             # Generate synthetic data using the simplified wrapper
             output_folder = "data"
             csv_path, ground_truth, plot_path = generate_sasview_data(
-                model_name=model_name, params=params, output_folder=output_folder, noise_level=0.03, plot=True, include_uncertainty=True  # 3% noise
+                model_name=model_name, params=params, output_folder=output_folder, noise_level=0.03, plot=True  # 3% noise
             )
 
             return {"success": True, "csv_path": csv_path, "ground_truth_params": ground_truth, "model_used": model_name, "plot_file": str(Path(csv_path).parent / f"synthetic_{model_name}_plot.png")}

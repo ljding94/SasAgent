@@ -110,8 +110,7 @@ def test_generation():
                 q_values=case["q_values"],
                 output_folder="test/test_data/generation",
                 noise_level=0.02,
-                plot=True,
-                include_uncertainty=True
+                plot=True
             )
 
             results[case["name"]] = {
@@ -200,7 +199,7 @@ def test_generation_sas_tool():
 
 
 
-def test_end_to_end_generation():
+def test_end_to_end_generation(llm_model="google/gemini-2.5-flash"):
     """Test the full CrewAI agent system using UnifiedSASAnalysisSystem.analyze_data()"""
     print("\n🤖 Testing Full CrewAI Agent System Integration")
     print("=" * 60)
@@ -215,7 +214,7 @@ def test_end_to_end_generation():
         test_prompts = [
             {
                 "name": "polymer_chains",
-                "prompt": "Generate SANS data for flexible polymer chains with length 200A and persistence length 50A",
+                "prompt": "Generate SANS data for flexible polymer chains with length 200A and kuhn length 50A",
                 "expected_task": "generation",
             },
             {
@@ -224,13 +223,18 @@ def test_end_to_end_generation():
                 "expected_task": "generation",
             },
             {
-                "name": "guinier",
-                "prompt": "Generate scattering data for guinier model for radius of gyration 30A over q range (0.01, 1)",
+                "name": "ellipsoid0",
+                "prompt": "Generate scattering data of ellipsoid with background 1.0",
                 "expected_task": "generation",
             },
             {
                 "name": "ellipsoid",
-                "prompt": "Generate scattering data of ellipsoid with background 1.0",
+                "prompt": "Generate scattering data for a prolate ellipsoid with zero background",
+                "expected_task": "generation",
+            },
+            {
+                "name": "crystal",
+                "prompt": "Generate synthetic data for cubic lattice with paracrystalline distortion with q range (0.005, 0.5)",
                 "expected_task": "generation",
             },
             {
@@ -239,8 +243,8 @@ def test_end_to_end_generation():
                 "expected_task": "generation",
             },
             {
-                "name": "crystal",
-                "prompt": "Generate synthetic data for cubic lattice with paracrystalline distortion with q range (0.005, 0.5)",
+                "name": "guinier",
+                "prompt": "Generate scattering data for guinier model for radius of gyration 30A over q range (0.01, 1)",
                 "expected_task": "generation",
             },
 
@@ -249,6 +253,7 @@ def test_end_to_end_generation():
         unified_results = {}
         output_folder = "test/test_data/generation"
 
+        #for test_case in test_prompts:
         for test_case in [test_prompts[3]]:
             print(f"\n📋 Testing: {test_case['name']}")
             print(f"   Prompt: {test_case['prompt']}")

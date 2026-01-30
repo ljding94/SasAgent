@@ -56,8 +56,7 @@ def generate_test_data():
                 q_values=config.get("q_values"),  # Pass custom q_values if provided
                 output_folder="test/test_data/fitting",
                 noise_level=0.03,  # 3% noise for realistic fitting challenge
-                plot=True,
-                include_uncertainty=True
+                plot=True
             )
 
             generated_files[dataset_name] = {
