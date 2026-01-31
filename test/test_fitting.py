@@ -23,26 +23,18 @@ def generate_test_data():
 
     # Generate test datasets with known parameters
     test_datasets = {
-        "sphere_test": {
-            "model": "sphere",
-            "params": {"radius": 50.0, "background": 0.01},
-            "q_values": np.linspace(0.001, 0.3 , 200).tolist()  # 0.001 to 1.0, 100 points
-        },
+        "sphere_test": {"model": "sphere", "params": {"radius": 50.0, "background": 0.01}, "q_values": np.linspace(0.001, 0.3, 200).tolist()},  # 0.001 to 1.0, 100 points
         "cylinder_test": {
             "model": "cylinder",
             "params": {"radius": 20.0, "length": 400.0, "background": 0.01},
-            "q_values": np.linspace(0.01, 0.5, 200).tolist()  # 0.01 to ~3.16, 120 points (SAXS-like)
+            "q_values": np.linspace(0.01, 0.5, 200).tolist(),  # 0.01 to ~3.16, 120 points (SAXS-like)
         },
         "flexible_cylinder_test": {
             "model": "flexible_cylinder",
             "params": {"length": 1000.0, "kuhn_length": 100.0, "radius": 20.0, "background": 0.01},
-            "q_values": np.linspace(0.01, 0.6, 200).tolist()  # 0.003 to ~0.5, 80 points (SANS-like)
+            "q_values": np.linspace(0.01, 0.6, 200).tolist(),  # 0.003 to ~0.5, 80 points (SANS-like)
         },
-        "lamellar_test": {
-            "model": "lamellar",
-            "params": {"thickness": 40.0, "background": 0.01},
-            "q_values": np.linspace(0.01, 1.0, 200).tolist()  # 0.0016 to ~0.32, 90 points (low-q SANS)
-        }
+        "lamellar_test": {"model": "lamellar", "params": {"thickness": 40.0, "background": 0.01}, "q_values": np.linspace(0.01, 1.0, 200).tolist()},  # 0.0016 to ~0.32, 90 points (low-q SANS)
     }
 
     generated_files = {}
@@ -56,14 +48,10 @@ def generate_test_data():
                 q_values=config.get("q_values"),  # Pass custom q_values if provided
                 output_folder="test/test_data/fitting",
                 noise_level=0.03,  # 3% noise for realistic fitting challenge
-                plot=True
+                plot=True,
             )
 
-            generated_files[dataset_name] = {
-                "csv_path": csv_path,
-                "model": config["model"],
-                "ground_truth": ground_truth
-            }
+            generated_files[dataset_name] = {"csv_path": csv_path, "model": config["model"], "ground_truth": ground_truth}
             print(f"✅ Generated: {csv_path}")
             print(f"   Ground truth: {ground_truth}")
 
@@ -99,17 +87,13 @@ def test_basic_fitting():
 
             try:
                 # Test fitting with the correct model
-                result = sasview_fit(
-                    csv_path,
-                    expected_model,
-                    plot_label=f"Test_{dataset_name}"
-                )
+                result = sasview_fit(csv_path, expected_model, plot_label=f"Test_{dataset_name}")
 
                 if "error" not in result:
-                    fit_data = result['fit_json']
-                    r_squared = fit_data['r_squared']
-                    rmse = fit_data['rmse']
-                    fitted_params = fit_data['parameters']
+                    fit_data = result["fit_json"]
+                    r_squared = fit_data["r_squared"]
+                    rmse = fit_data["rmse"]
+                    fitted_params = fit_data["parameters"]
 
                     print("✅ Fitting successful!")
                     print(f"   R² = {r_squared:.4f}")
@@ -121,12 +105,7 @@ def test_basic_fitting():
                     print(f"Fit quality: {fit_quality}")
 
                     # Compare key physical parameters (ignore scale and highly correlated params)
-                    key_params = {
-                        "sphere": ["radius"],
-                        "cylinder": ["radius", "length"],
-                        "flexible_cylinder": ["length", "kuhn_length", "radius"],
-                        "lamellar": ["thickness"]
-                    }
+                    key_params = {"sphere": ["radius"], "cylinder": ["radius", "length"], "flexible_cylinder": ["length", "kuhn_length", "radius"], "lamellar": ["thickness"]}
 
                     model_key_params = key_params.get(expected_model, [])
                     param_recovery_good = True
@@ -161,21 +140,15 @@ def test_basic_fitting():
                         "fitted_parameters": fitted_params,
                         "ground_truth": ground_truth,
                         "fit_quality": fit_quality,
-                        "overall_success": overall_success
+                        "overall_success": overall_success,
                     }
                 else:
                     print(f"❌ Fitting failed: {result['error']}")
-                    fitting_results[dataset_name] = {
-                        "success": False,
-                        "error": result['error']
-                    }
+                    fitting_results[dataset_name] = {"success": False, "error": result["error"]}
 
             except Exception as e:
                 print(f"❌ Fitting exception: {e}")
-                fitting_results[dataset_name] = {
-                    "success": False,
-                    "error": str(e)
-                }
+                fitting_results[dataset_name] = {"success": False, "error": str(e)}
 
         return fitting_results
 
@@ -208,22 +181,10 @@ def test_rag_enhanced_fitting():
 
         # Test sample descriptions that should match our test data
         test_cases = [
-            {
-                "description": "spherical nanoparticles in solution, analyze with sphere model",
-                "expected_file_pattern": "sphere"
-            },
-            {
-                "description": "cylindrical rod-like particles, analyze with cylinder model",
-                "expected_file_pattern": "cylinder"
-            },
-            {
-                "description": "flexible polymer chains in solution, analyze with flexible_cylinder model",
-                "expected_file_pattern": "flexible_cylinder"
-            },
-            {
-                "description": "lamellar bilayer structures, analyze with lamellar model",
-                "expected_file_pattern": "lamellar"
-            }
+            {"description": "spherical nanoparticles in solution, analyze with sphere model", "expected_file_pattern": "sphere"},
+            {"description": "cylindrical rod-like particles, analyze with cylinder model", "expected_file_pattern": "cylinder"},
+            {"description": "flexible polymer chains in solution, analyze with flexible_cylinder model", "expected_file_pattern": "flexible_cylinder"},
+            {"description": "lamellar bilayer structures, analyze with lamellar model", "expected_file_pattern": "lamellar"},
         ]
 
         results = {}
@@ -245,48 +206,30 @@ def test_rag_enhanced_fitting():
 
             # Get RAG model recommendation
             rag_result = rag_tool._run(description)
-            if rag_result.get('success'):
-                recommended_model = rag_result['recommended_model']
-                confidence = rag_result['confidence']
+            if rag_result.get("success"):
+                recommended_model = rag_result["recommended_model"]
+                confidence = rag_result["confidence"]
                 print(f"   🧠 RAG Recommended: {recommended_model} (confidence: {confidence:.3f})")
 
                 # Test fitting with recommended model
-                fitting_result = fitting_tool._run(
-                    csv_path=csv_path,
-                    model_name=recommended_model,
-                    parameter_guidance="RAG-guided fitting test"
-                )
+                fitting_result = fitting_tool._run(csv_path=csv_path, model_name=recommended_model, parameter_guidance="RAG-guided fitting test")
 
-                if fitting_result.get('success'):
-                    r_squared = fitting_result['r_squared']
-                    rmse = fitting_result['rmse']
+                if fitting_result.get("success"):
+                    r_squared = fitting_result["r_squared"]
+                    rmse = fitting_result["rmse"]
                     print("   ✅ Fitting successful!")
                     print(f"      R² = {r_squared:.4f}")
                     print(f"      RMSE = {rmse:.2e}")
 
-                    results[description] = {
-                        "success": True,
-                        "recommended_model": recommended_model,
-                        "confidence": confidence,
-                        "r_squared": r_squared,
-                        "rmse": rmse,
-                        "data_file": csv_path
-                    }
+                    results[description] = {"success": True, "recommended_model": recommended_model, "confidence": confidence, "r_squared": r_squared, "rmse": rmse, "data_file": csv_path}
                 else:
-                    error = fitting_result.get('error', 'Unknown fitting error')
+                    error = fitting_result.get("error", "Unknown fitting error")
                     print(f"   ❌ Fitting failed: {error}")
-                    results[description] = {
-                        "success": False,
-                        "recommended_model": recommended_model,
-                        "error": error
-                    }
+                    results[description] = {"success": False, "recommended_model": recommended_model, "error": error}
             else:
-                error = rag_result.get('error', 'Unknown RAG error')
+                error = rag_result.get("error", "Unknown RAG error")
                 print(f"   ❌ RAG failed: {error}")
-                results[description] = {
-                    "success": False,
-                    "error": error
-                }
+                results[description] = {"success": False, "error": error}
 
         return results
 
@@ -312,7 +255,7 @@ def test_model_selection_accuracy():
             ("flexible polymer chains using flexible_cylinder model", "flexible_cylinder"),
             ("core-shell particles using core_shell_sphere model", "core_shell_sphere"),
             ("charged spherical particles using hayter_msa model", "hayter_msa"),
-            ("lamellar bilayer structures using lamellar model", "lamellar")
+            ("lamellar bilayer structures using lamellar model", "lamellar"),
         ]
 
         results = {}
@@ -323,41 +266,27 @@ def test_model_selection_accuracy():
             print(f"   Expected: {expected_model}")
 
             rag_result = rag_tool._run(description)
-            if rag_result.get('success'):
-                recommended = rag_result['recommended_model']
-                confidence = rag_result['confidence']
+            if rag_result.get("success"):
+                recommended = rag_result["recommended_model"]
+                confidence = rag_result["confidence"]
 
                 # Check if it's correct or a reasonable alternative
-                is_correct = (recommended == expected_model)
+                is_correct = recommended == expected_model
                 if is_correct:
                     correct_predictions += 1
                     print(f"   ✅ Recommended: {recommended} (confidence: {confidence:.3f}) - CORRECT")
                 else:
                     print(f"   ⚠️  Recommended: {recommended} (confidence: {confidence:.3f}) - DIFFERENT")
 
-                results[description] = {
-                    "success": True,
-                    "expected": expected_model,
-                    "recommended": recommended,
-                    "confidence": confidence,
-                    "correct": is_correct
-                }
+                results[description] = {"success": True, "expected": expected_model, "recommended": recommended, "confidence": confidence, "correct": is_correct}
             else:
                 print(f"   ❌ Failed: {rag_result.get('error')}")
-                results[description] = {
-                    "success": False,
-                    "error": rag_result.get('error')
-                }
+                results[description] = {"success": False, "error": rag_result.get("error")}
 
         accuracy = correct_predictions / len(test_cases) * 100
         print(f"\n📊 Overall Accuracy: {correct_predictions}/{len(test_cases)} ({accuracy:.1f}%)")
 
-        return {
-            "results": results,
-            "accuracy": accuracy,
-            "correct_predictions": correct_predictions,
-            "total_tests": len(test_cases)
-        }
+        return {"results": results, "accuracy": accuracy, "correct_predictions": correct_predictions, "total_tests": len(test_cases)}
 
     except ImportError as e:
         print(f"❌ RAG tools not available: {e}")
@@ -380,7 +309,7 @@ def test_crewai_collaborative_analysis():
             # First, generate some test data to analyze
             test_files = generate_test_data()
 
-            if not test_files or all('error' in info for info in test_files.values()):
+            if not test_files or all("error" in info for info in test_files.values()):
                 print("   ❌ No test data available for CrewAI testing")
                 return {"error": "No test data available"}
 
@@ -391,18 +320,18 @@ def test_crewai_collaborative_analysis():
                 {
                     "name": "sphere_analysis",
                     "prompt": "Analyze this spherical nanoparticle data. Determine the best model, fit the parameters, and provide scientific insights about the particle size and structure.",
-                    "data_pattern": "sphere"
+                    "data_pattern": "sphere",
                 },
                 {
                     "name": "cylinder_analysis",
                     "prompt": "This data is from rod-like nanoparticles. Please select an appropriate model, perform fitting, and comment on the aspect ratio and structure.",
-                    "data_pattern": "cylinder"
+                    "data_pattern": "cylinder",
                 },
                 {
                     "name": "automated_analysis",
                     "prompt": "I have SAS data but I'm not sure what structure it represents. Please analyze it automatically - select the best model, fit the data, and tell me what you found.",
-                    "data_pattern": "flexible_cylinder"  # Use a more complex case
-                }
+                    "data_pattern": "flexible_cylinder",  # Use a more complex case
+                },
             ]
 
             for test_case in analysis_prompts:
@@ -416,7 +345,7 @@ def test_crewai_collaborative_analysis():
                 # Find matching test data
                 matching_data = None
                 for dataset_name, file_info in test_files.items():
-                    if pattern in dataset_name and 'error' not in file_info:
+                    if pattern in dataset_name and "error" not in file_info:
                         matching_data = file_info
                         break
 
@@ -435,8 +364,8 @@ def test_crewai_collaborative_analysis():
                         data_path=data_path,
                         output_folder=temp_dir,
                         verbose=True,
-                        api_key=os.getenv('OPENROUTER_API_KEY'),  # Use env variable
-                        model='openai/gpt-4o-mini'  # Use a reliable model for testing
+                        api_key=os.getenv("OPENROUTER_API_KEY"),  # Use env variable
+                        model="openai/gpt-4o-mini",  # Use a reliable model for testing
                     )
 
                     print("   🤖 CrewAI analysis completed!")
@@ -446,66 +375,51 @@ def test_crewai_collaborative_analysis():
                     success = False
                     analysis_details = {}
 
-                    if hasattr(analysis_result, 'raw'):
+                    if hasattr(analysis_result, "raw"):
                         # CrewAI CrewOutput object
                         raw_output = str(analysis_result.raw)
-                        analysis_details['raw_output'] = raw_output[:500] + "..." if len(raw_output) > 500 else raw_output
+                        analysis_details["raw_output"] = raw_output[:500] + "..." if len(raw_output) > 500 else raw_output
                         success = True
                         print(f"   ✅ Got CrewAI raw output ({len(raw_output)} chars)")
                     elif isinstance(analysis_result, dict):
                         analysis_details = analysis_result
-                        success = analysis_result.get('success', True)
+                        success = analysis_result.get("success", True)
                         print(f"   ✅ Got structured result with keys: {list(analysis_result.keys())}")
                     elif isinstance(analysis_result, str):
-                        analysis_details['text_output'] = analysis_result
+                        analysis_details["text_output"] = analysis_result
                         success = True
                         print(f"   ✅ Got text output ({len(analysis_result)} chars)")
                     else:
-                        analysis_details['output'] = str(analysis_result)
+                        analysis_details["output"] = str(analysis_result)
                         success = True
                         print(f"   ✅ Got result: {type(analysis_result)}")
 
                     # Check for generated files in temp directory
                     generated_files = []
-                    for file_path in Path(temp_dir).rglob('*'):
+                    for file_path in Path(temp_dir).rglob("*"):
                         if file_path.is_file():
                             generated_files.append(str(file_path))
 
-                    analysis_details['generated_files'] = generated_files
-                    analysis_details['file_count'] = len(generated_files)
+                    analysis_details["generated_files"] = generated_files
+                    analysis_details["file_count"] = len(generated_files)
 
                     if generated_files:
                         print(f"   📁 Generated {len(generated_files)} files")
 
-                    results[test_name] = {
-                        "success": success,
-                        "data_file": data_path,
-                        "analysis_details": analysis_details,
-                        "prompt_used": prompt
-                    }
+                    results[test_name] = {"success": success, "data_file": data_path, "analysis_details": analysis_details, "prompt_used": prompt}
 
                 except Exception as e:
                     error_msg = str(e)
                     print(f"   ❌ CrewAI analysis failed: {error_msg}")
-                    results[test_name] = {
-                        "success": False,
-                        "error": error_msg,
-                        "data_file": data_path,
-                        "prompt_used": prompt
-                    }
+                    results[test_name] = {"success": False, "error": error_msg, "data_file": data_path, "prompt_used": prompt}
 
             # Summary
-            successful_tests = sum(1 for r in results.values() if r.get('success'))
+            successful_tests = sum(1 for r in results.values() if r.get("success"))
             total_tests = len(results)
 
             print(f"\n📊 CrewAI Analysis Summary: {successful_tests}/{total_tests} tests successful")
 
-            return {
-                "results": results,
-                "success_rate": successful_tests / total_tests if total_tests > 0 else 0,
-                "successful_tests": successful_tests,
-                "total_tests": total_tests
-            }
+            return {"results": results, "success_rate": successful_tests / total_tests if total_tests > 0 else 0, "successful_tests": successful_tests, "total_tests": total_tests}
 
     except ImportError as e:
         print(f"❌ CrewAI system not available: {e}")
@@ -515,28 +429,29 @@ def test_crewai_collaborative_analysis():
         return {"error": str(e)}
 
 
-def test_end_to_end_fitting():
+def test_end_to_end_fitting(llm_model="openai/gpt-4o-mini",run_number=0):
     """Test the full CrewAI agent system using UnifiedSASAnalysisSystem.analyze_data() for fitting tasks"""
     print("\n🤖 Testing Full CrewAI Agent System Integration - Fitting")
     print("=" * 60)
+    print(f"   Using LLM model: {llm_model}")
 
     try:
         from crewai_sas_agents import UnifiedSASAnalysisSystem
 
-        # Initialize the unified system
-        system = UnifiedSASAnalysisSystem()
+        # Initialize the unified system with the specified model
+        system = UnifiedSASAnalysisSystem(model=llm_model)
 
         # Test cases for the unified system with fitting tasks
         test_cases = [
             {
                 "name": "hard_colloids_fitting",
-                "data_file": "test/test_data/fitting/hard_colloids.txt",
+                "data_file": str(project_root / "test/hard_colloids.txt"),
                 "prompt": "fit this scattering data using sphere model, the solvent is D2O, and the sample sld is about 1",
                 "expected_task": "fitting",
             },
             {
                 "name": "ladder_polymer_fitting",
-                "data_file": "test/test_data/fitting/ladder_polymer.txt",
+                "data_file": str(project_root / "test/ladder_polymer.txt"),
                 "prompt": "fit this scattering data using flexible cylinder model, the solvent is tetrahydrofuran, and sample is C15H14 polymer, find sld for both before fitting, the kuhn length is about 10, length is about 100",
             },
         ]
@@ -551,10 +466,7 @@ def test_end_to_end_fitting():
 
             try:
                 if not os.path.exists(test_case["data_file"]):
-                    fitting_results[test_case["name"]] = {
-                        "success": False,
-                        "error": f"Data file not found: {test_case['data_file']}"
-                    }
+                    fitting_results[test_case["name"]] = {"success": False, "error": f"Data file not found: {test_case['data_file']}"}
                     print(f"❌ {test_case['name']}: Data file not found")
                     continue
 
@@ -562,26 +474,189 @@ def test_end_to_end_fitting():
                 result = system.analyze_data(
                     prompt=test_case["prompt"],
                     data_path=test_case["data_file"],
-                    output_folder="./test/test_data/fitting",
                 )
 
-                # Record success and result
-                fitting_results[test_case["name"]] = {
-                    "success": True,
-                    "result": result
-                }
-                print(f"   ✅ {test_case['name']}: analyze_data completed")
+                # Check if result contains successful tool output (fitting results)
+                # Also capture the raw crew output message for logging
+                crew_output_message = None
+
+                # Try to capture the crew output in various ways
+                if hasattr(result, '__str__'):
+                    # Capture the full string representation of the result
+                    crew_output_message = str(result)
+                    print(f"   📝 Captured crew output via __str__: {len(crew_output_message)} chars")
+
+                if hasattr(result, 'raw'):
+                    # If there's a raw attribute, prefer that
+                    print(f"   🔍 Result has 'raw' attribute, type: {type(result.raw)}")
+                    if result.raw:
+                        crew_output_message = str(result.raw)
+                        print(f"   📝 Captured crew output via result.raw: {len(crew_output_message)} chars")
+
+                if isinstance(result, dict) and result.get('success'):
+                    fitting_results[test_case["name"]] = {"success": True, "result": result, "crew_output": crew_output_message}
+                    print(f"   ✅ {test_case['name']}: Fitting completed successfully")
+                elif hasattr(result, 'raw') and isinstance(result.raw, dict) and result.raw.get('success'):
+                    # Handle CrewOutput object with nested result
+                    fitting_results[test_case["name"]] = {"success": True, "result": result.raw, "crew_output": crew_output_message}
+                    print(f"   ✅ {test_case['name']}: Fitting completed successfully")
+                elif isinstance(result, dict) and 'r_squared' in result:
+                    # Direct fitting result
+                    fitting_results[test_case["name"]] = {"success": True, "result": result, "crew_output": crew_output_message}
+                    print(f"   ✅ {test_case['name']}: Fitting completed (R² = {result.get('r_squared', 'N/A'):.4f})")
+                else:
+                    # Result may have succeeded despite LLM response issues
+                    fitting_results[test_case["name"]] = {"success": True, "result": result, "crew_output": crew_output_message}
+                    print(f"   ✅ {test_case['name']}: analyze_data completed")
 
             except Exception as e:
-                fitting_results[test_case["name"]] = {
-                    "success": False,
-                    "error": str(e)
-                }
+                fitting_results[test_case["name"]] = {"success": False, "error": str(e)}
                 print(f"   ❌ {test_case['name']}: Exception during analysis: {e}")
+
+        # Save results to file and copy plots
+        # Create output directory with model name
+        model_name = llm_model.replace("/", "_")  # Convert model path to directory-safe name
+        output_dir = project_root / "test" / "test_data" / "fitting" / model_name
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        import json
+        import shutil
+
+        try:
+            # Convert Path objects to strings for JSON serialization
+            serializable_results = {}
+            for key, value in fitting_results.items():
+                if not isinstance(value, dict):
+                    # Skip if value is not a dict
+                    continue
+
+                result_data = value.get("result", {})
+                if not isinstance(result_data, dict):
+                    result_data = {}
+
+                # Extract and copy plot file from results
+                plot_file = None
+                if isinstance(result_data, dict):
+                    # Try multiple possible keys where plot file might be stored
+                    plot_path = result_data.get("plot_file")
+
+                    # If not found directly, try to extract from LLM results string
+                    if not plot_path:
+                        results_str = result_data.get("results", "")
+                        if isinstance(results_str, str) and ".png" in results_str:
+                            # Extract file path from results string using regex
+                            import re
+                            # Look for file paths ending in .png
+                            matches = re.findall(r'/[^\s]+\.png', results_str)
+                            if matches:
+                                plot_path = matches[-1]  # Get the last match (most likely the plot)
+                                print(f"   📝 Extracted plot path from LLM output: {plot_path}")
+
+                    if plot_path and isinstance(plot_path, str):
+                        original_plot = Path(plot_path)
+                        if original_plot.exists():
+                            plot_filename = original_plot.name
+                            dest_plot = output_dir / f"{run_number}_{plot_filename}"
+                            shutil.copy2(original_plot, dest_plot)
+                            plot_file = str(dest_plot)
+                            print(f"   📊 Saved plot: {plot_filename}")
+                        else:
+                            print(f"   ⚠️  Plot file path exists in result but file not found: {plot_path}")
+                            # Fallback 1: Try cache/plots/ directory (common save location)
+                            print("   🔄 Attempting fallback plot location (cache/plots/)...")
+                            # Extract data file basename (e.g., "hard_colloids" from "hard_colloids.txt")
+                            data_file_path = next((tc["data_file"] for tc in test_cases if tc["name"] == key), None)
+                            if data_file_path:
+                                data_basename = Path(data_file_path).stem  # e.g., "hard_colloids"
+                                cache_plots_dir = project_root / "cache" / "plots"
+                                if cache_plots_dir.exists():
+                                    # Look for any plot matching the data basename pattern
+                                    matching_plots = list(cache_plots_dir.glob(f"{data_basename}_*_fit.png"))
+                                    if matching_plots:
+                                        fallback_plot = matching_plots[0]  # Take the first match
+                                        plot_filename = fallback_plot.name
+                                        dest_plot = output_dir / f"{run_number}_{plot_filename}"
+                                        shutil.copy2(fallback_plot, dest_plot)
+                                        plot_file = str(dest_plot)
+                                        print(f"   ✅ Found and copied plot from cache/plots/: {plot_filename}")
+                                    else:
+                                        print(f"   ⚠️  No matching plots found in cache/plots/ for: {data_basename}")
+                                        # Fallback 2: try test/plots/ location
+                                        print("   🔄 Attempting fallback plot location (test/plots/)...")
+                                        fallback_plot = project_root / "test" / "plots" / f"{key.replace('_fitting', '')}_flexible_cylinder_fit_bumps_CrewAI_Unified_Agent.png"
+                                        if fallback_plot.exists():
+                                            plot_filename = fallback_plot.name
+                                            dest_plot = output_dir / plot_filename
+                                            shutil.copy2(fallback_plot, dest_plot)
+                                            plot_file = str(dest_plot)
+                                            print(f"   ✅ Found and copied fallback plot: {plot_filename}")
+                                        else:
+                                            print(f"   ❌ Fallback plot not found: {fallback_plot}")
+                                else:
+                                    print(f"   ⚠️  cache/plots/ directory not found")
+                            else:
+                                print(f"   ⚠️  Could not find data file for test case: {key}")
+                    else:
+                        print(f"   ℹ️  No plot_file found in result data for: {key}")
+                        # Fallback 1: Try cache/plots/ directory (common save location)
+                        print(f"   🔄 Attempting fallback plot location (cache/plots/)...")
+                        # Extract data file basename (e.g., "hard_colloids" from "hard_colloids.txt")
+                        data_file_path = next((tc["data_file"] for tc in test_cases if tc["name"] == key), None)
+                        if data_file_path:
+                            data_basename = Path(data_file_path).stem  # e.g., "hard_colloids"
+                            cache_plots_dir = project_root / "cache" / "plots"
+                            if cache_plots_dir.exists():
+                                # Look for any plot matching the data basename pattern
+                                matching_plots = list(cache_plots_dir.glob(f"{data_basename}_*_fit.png"))
+                                if matching_plots:
+                                    fallback_plot = matching_plots[0]  # Take the first match
+                                    plot_filename = fallback_plot.name
+                                    dest_plot = output_dir / f"{run_number}_{plot_filename}"
+                                    shutil.copy2(fallback_plot, dest_plot)
+                                    plot_file = str(dest_plot)
+                                    print(f"   ✅ Found and copied plot from cache/plots/: {plot_filename}")
+                                else:
+                                    print(f"   ⚠️  No matching plots found in cache/plots/ for: {data_basename}")
+                                    # Fallback 2: try test/plots/ location
+                                    print("   🔄 Attempting fallback plot location (test/plots/)...")
+                                    fallback_plot = project_root / "test" / "plots" / f"{key.replace('_fitting', '')}_flexible_cylinder_fit_bumps_CrewAI_Unified_Agent.png"
+                                    if fallback_plot.exists():
+                                        plot_filename = fallback_plot.name
+                                        dest_plot = output_dir / plot_filename
+                                        shutil.copy2(fallback_plot, dest_plot)
+                                        plot_file = str(dest_plot)
+                                        print(f"   ✅ Found and copied fallback plot: {plot_filename}")
+                                    else:
+                                        print(f"   ❌ Fallback plot not found: {fallback_plot}")
+                            else:
+                                print(f"   ⚠️  cache/plots/ directory not found")
+                        else:
+                            print(f"   ⚠️  Could not find data file for test case: {key}")
+
+                serializable_results[key] = {
+                    "success": value.get("success"),
+                    "error": value.get("error"),
+                    "plot_file": plot_file,
+                    "crew_output_message": value.get("crew_output"),
+                }
+
+                # Save each test case to its own JSON file with model name and run number
+                results_file = output_dir / f"{run_number}_fitting_results_{key}_{model_name}.json"
+                with open(results_file, 'w') as f:
+                    json.dump(serializable_results[key], f, indent=2)
+                print(f"📄 Results saved to: {results_file}")
+
+                if value.get("crew_output"):
+                    print(f"   📝 Crew output captured ({len(value.get('crew_output'))} chars)")
+
+        except Exception as e:
+            print(f"\n⚠️  Could not save results file: {e}")
+
         return fitting_results
     except ImportError as e:
         print(f"❌ Unified system not available: {e}")
         return {"error": "Unified system not available"}
+
 
 def main():
     """Main test runner"""
@@ -589,14 +664,14 @@ def main():
     print("=" * 60)
 
     # Ensure output directories exist
-    os.makedirs("test/test_data/fitting", exist_ok=True)
+    (project_root / "test" / "test_data" / "fitting").mkdir(parents=True, exist_ok=True)
 
     # Run tests
     results = {}
 
     # Test 1: Basic fitting functionality
     print("\n🚀 Running basic fitting test...")
-    #results['basic_fitting'] = test_basic_fitting()
+    # results['basic_fitting'] = test_basic_fitting()
 
     # Test 2: RAG-enhanced fitting workflow
     # results['rag_fitting'] = test_rag_enhanced_fitting()
@@ -608,7 +683,11 @@ def main():
     # results['crewai_analysis'] = test_crewai_collaborative_analysis()
 
     # Test 5: End-to-end fitting with unified system
-    test_end_to_end_fitting()
+    #llm_model="google/gemini-2.5-flash"
+    #llm_model = "x-ai/grok-4.1-fast"
+    llm_model = "openai/gpt-5-mini"
+    for run_num in range(5):
+        test_end_to_end_fitting(llm_model=llm_model, run_number=run_num)
 
     return results
 

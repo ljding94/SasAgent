@@ -9,8 +9,9 @@ import sys
 import shutil
 from pathlib import Path
 
-# Add parent directory to path to import modules
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add project root to path
+project_root = Path(__file__).parent.parent  # Go up one level since we're in test/
+sys.path.insert(0, str(project_root))
 
 # Disable CrewAI telemetry
 os.environ['OTEL_SDK_DISABLED'] = 'true'
@@ -25,19 +26,19 @@ def setup_test_environment():
     print("🔧 Setting up test environment...")
 
     # Create test cache directories
-    test_cache_dir = "/Users/ldq/Work/SasAgent/test_cache"
-    test_uploads_dir = os.path.join(test_cache_dir, "uploads")
-    test_plots_dir = os.path.join(test_cache_dir, "plots")
-    test_generated_dir = os.path.join(test_cache_dir, "generated")
+    test_cache_dir = project_root / "test_cache"
+    test_uploads_dir = test_cache_dir / "uploads"
+    test_plots_dir = test_cache_dir / "plots"
+    test_generated_dir = test_cache_dir / "generated"
 
     for directory in [test_cache_dir, test_uploads_dir, test_plots_dir, test_generated_dir]:
-        os.makedirs(directory, exist_ok=True)
+        directory.mkdir(parents=True, exist_ok=True)
         print(f"  📁 Created: {directory}")
 
     # Copy test data to uploads directory
-    source_data = "/Users/ldq/Work/SasAgent/data/test_fitting/synthetic_sphere.csv"  # Use the good test data
-    if os.path.exists(source_data):
-        test_data_path = os.path.join(test_uploads_dir, "test_sphere_data.csv")
+    source_data = project_root / "data" / "test_fitting" / "synthetic_sphere.csv"
+    if source_data.exists():
+        test_data_path = test_uploads_dir / "test_sphere_data.csv"
         shutil.copy2(source_data, test_data_path)
         print(f"  📊 Copied test data to: {test_data_path}")
         return test_data_path, test_plots_dir, test_generated_dir
@@ -50,17 +51,17 @@ def test_direct_fitting(data_path, plots_dir):
     print("\n🧪 Test 1: Direct SasView Fitting")
     print("=" * 50)
 
-    if not data_path or not os.path.exists(data_path):
+    if not data_path or not Path(data_path).exists():
         print(f"❌ Data file not found: {data_path}")
         return False
 
     try:
         # Test fitting with output directory
         result = sasview_fit(
-            csv_path=data_path,
+            csv_path=str(data_path),
             model_name='sphere',
             plot_label='test_app',
-            output_dir=plots_dir
+            output_dir=str(plots_dir)
         )
 
         print(f"📋 Result keys: {list(result.keys()) if isinstance(result, dict) else 'Error'}")
@@ -214,14 +215,14 @@ def test_experimental_data_fitting():
         from SAS.fitting import sasview_fit
 
         # Setup paths
-        exp_data_path = "/Users/ldq/Work/SasAgent/cache/uploads/upload_20250818_233703_merged_incoh_L2_Iq_subtracted_selected.txt"
-        plots_dir = "/Users/ldq/Work/SasAgent/test_cache/plots"
+        exp_data_path = project_root / "cache" / "uploads" / "upload_20250818_233703_merged_incoh_L2_Iq_subtracted_selected.txt"
+        plots_dir = project_root / "test_cache" / "plots"
 
-        if not os.path.exists(exp_data_path):
+        if not exp_data_path.exists():
             print(f"⚠️  Experimental data file not found: {exp_data_path}")
             return False
 
-        print(f"📊 Testing with experimental data: {os.path.basename(exp_data_path)}")
+        print(f"📊 Testing with experimental data: {exp_data_path.name}")
 
         # Check data characteristics
         with open(exp_data_path, 'r') as f:
@@ -262,11 +263,11 @@ def test_experimental_data_fitting():
 
         try:
             result = sasview_fit(
-                csv_path=exp_data_path,
+                csv_path=str(exp_data_path),
                 model_name=model,
                 param_constraints=param_constraints,  # Pass the constraints
                 plot_label=f'exp_data_{model}_constrained',
-                output_dir=plots_dir
+                output_dir=str(plots_dir)
             )
 
             if 'error' in result:
@@ -451,9 +452,9 @@ def test_crewai_with_parsed_parameters():
             return constraints
 
         # Test with experimental data
-        data_file = "/Users/ldq/Work/SasAgent/cache/uploads/upload_20250818_233703_merged_incoh_L2_Iq_subtracted_selected.txt"
+        data_file = project_root / "cache" / "uploads" / "upload_20250818_233703_merged_incoh_L2_Iq_subtracted_selected.txt"
 
-        if not os.path.exists(data_file):
+        if not data_file.exists():
             print(f"❌ Test data not found: {data_file}")
             return False
 
@@ -471,11 +472,11 @@ def test_crewai_with_parsed_parameters():
             return False
 
         # Use the parsed constraints in fitting
-        output_dir = "/Users/ldq/Work/SasAgent/test_cache/plots"
+        output_dir = project_root / "test_cache" / "plots"
 
         print("🔧 Running fitting with parsed constraints...")
         result = sasview_fit_with_bumps(
-            data_file,
+            str(data_file),
             'flexible_cylinder',
             param_constraints=parsed_constraints,
             output_dir=output_dir,
@@ -528,9 +529,9 @@ def test_full_crewai_with_parameter_prompts():
         import re
 
         # Test data
-        data_file = "/Users/ldq/Work/SasAgent/cache/uploads/upload_20250818_233703_merged_incoh_L2_Iq_subtracted_selected.txt"
+        data_file = project_root / "cache" / "uploads" / "upload_20250818_233703_merged_incoh_L2_Iq_subtracted_selected.txt"
 
-        if not os.path.exists(data_file):
+        if not data_file.exists():
             print(f"❌ Test data not found: {data_file}")
             return False
 
@@ -554,7 +555,7 @@ def test_full_crewai_with_parameter_prompts():
             }
         ]
 
-        output_dir = "/Users/ldq/Work/SasAgent/test_cache/plots"
+        output_dir = project_root / "test_cache" / "plots"
 
         # Test the CrewAI fitting tool with parameter guidance
         fitting_tool = SasViewFittingTool()
@@ -563,6 +564,8 @@ def test_full_crewai_with_parameter_prompts():
             print(f"\n📋 Test Case {i}: {test_case['expected_model']} model")
             print(f"📝 User prompt: '{test_case['prompt']}'")
 
+            # Convert Path to string for passing to functions
+            data_file_str = str(data_file)
             # For experimental polymer data, we always use flexible_cylinder model
             model_name = 'flexible_cylinder'
 
@@ -640,10 +643,10 @@ def test_plot_file_discovery():
     import glob
 
     # Check cache directories for plots
-    cache_dir = "/Users/ldq/Work/SasAgent/cache"
-    plots_dir = os.path.join(cache_dir, "plots")
-    uploads_dir = os.path.join(cache_dir, "uploads")
-    generated_dir = os.path.join(cache_dir, "generated")
+    cache_dir = project_root / "cache"
+    plots_dir = cache_dir / "plots"
+    uploads_dir = cache_dir / "uploads"
+    generated_dir = cache_dir / "generated"
 
     print(f"📁 Checking directories:")
     print(f"   Cache: {cache_dir}")
@@ -653,28 +656,28 @@ def test_plot_file_discovery():
 
     # Simulate app.py plot discovery logic
     plot_patterns = [
-        os.path.join(plots_dir, '*.png'),
-        os.path.join(plots_dir, '*.jpg'),
-        os.path.join(generated_dir, '*.png'),
-        os.path.join(generated_dir, '*.jpg'),
-        os.path.join(uploads_dir, '*.png'),
-        os.path.join(uploads_dir, '*.jpg'),
+        plots_dir / '*.png',
+        plots_dir / '*.jpg',
+        generated_dir / '*.png',
+        generated_dir / '*.jpg',
+        uploads_dir / '*.png',
+        uploads_dir / '*.jpg',
     ]
 
     found_plots = []
     for pattern in plot_patterns:
-        files = glob.glob(pattern)
+        files = list(pattern.parent.glob(pattern.name))
         if files:
             print(f"📈 Found plots in {pattern}: {len(files)} files")
             for file in files:
-                print(f"   - {file} ({os.path.getsize(file)} bytes)")
+                print(f"   - {file} ({file.stat().st_size} bytes)")
                 found_plots.append(file)
         else:
             print(f"📈 No plots found in {pattern}")
 
     if found_plots:
         # Get the most recent file
-        most_recent = max(found_plots, key=os.path.getctime)
+        most_recent = max(found_plots, key=lambda f: f.stat().st_mtime)
         print(f"📈 Most recent plot: {most_recent}")
         print("✅ Plot discovery test completed successfully!")
     else:
@@ -686,8 +689,8 @@ def cleanup_test_environment():
     """Clean up test directories"""
     print("\n🧹 Cleaning up test environment...")
 
-    test_cache_dir = "/Users/ldq/Work/SasAgent/test_cache"
-    if os.path.exists(test_cache_dir):
+    test_cache_dir = project_root / "test_cache"
+    if test_cache_dir.exists():
         shutil.rmtree(test_cache_dir)
         print(f"  🗑️  Removed: {test_cache_dir}")
 

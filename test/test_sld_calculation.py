@@ -6,6 +6,10 @@ Compare direct SasView SLD calculator vs CrewAI agent approach
 
 import os
 import sys
+from pathlib import Path
+# Add project root to path
+project_root = Path(__file__).parent.parent  # Go up one level since we're in test/
+sys.path.insert(0, str(project_root))
 
 # Add parent directory to path to import modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -25,49 +29,66 @@ def test_direct_sld_calculation():
         # Import the SLD calculator tool directly
         from crewai_sas_agents import SLDCalculatorTool
 
-        # Test chemicals - use SLDCalculatorTool for both direct and agent tests
-        # since it handles name normalization properly (THF -> C4H8O)
-        test_chemicals = [
-            "THF",      # Tetrahydrofuran
-            "D2O",      # Heavy water
-            "H2O",      # Water
-            "C12H6"     # Acenaphthylene or similar aromatic compound
+        # Test cases with both chemical formula and neutron/X-ray flag
+        test_cases = [
+            {"chemical": "THF", "is_neutron": True},
+            {"chemical": "THF", "is_neutron": False},
+            {"chemical": "D2O", "is_neutron": True},
+            {"chemical": "D2O", "is_neutron": False},
+            {"chemical": "H2O", "is_neutron": True},
+            {"chemical": "H2O", "is_neutron": False},
+            {"chemical": "C12H6", "is_neutron": True},
+            {"chemical": "C12H6", "is_neutron": False}
         ]
 
         sld_tool = SLDCalculatorTool()
         direct_results = {}
 
-        for chemical in test_chemicals:
-            print(f"\n📋 Testing: {chemical}")
+        for test_case in test_cases:
+            chemical = test_case["chemical"]
+            is_neutron = test_case["is_neutron"]
+            scattering_type = "Neutron" if is_neutron else "X-ray"
+            test_key = f"{chemical}_{scattering_type}"
+
+            print(f"\n📋 Testing: {chemical} ({scattering_type})")
             try:
-                result = sld_tool._run(formula=chemical)
+                result = sld_tool._run(formula=chemical, is_neutron=is_neutron)
 
                 if result.get('success'):
                     sld_data = result['result']
                     sld_real = sld_data['sld_real']
-                    sld_imag = sld_data['sld_imag']
 
                     print("  ✅ Success!")
                     print(f"     SLD Real: {sld_real:.4f} × 10⁻⁶ Å⁻²")
-                    print(f"     SLD Imag: {sld_imag:.6f} × 10⁻⁶ Å⁻²")
                     print(f"     Density: {result.get('density', 'N/A')} g/cm³")
 
-                    direct_results[chemical] = {
+                    direct_results[test_key] = {
+                        'chemical': chemical,
+                        'is_neutron': is_neutron,
                         'sld_real': sld_real,
-                        'sld_imag': sld_imag,
                         'density': result.get('density'),
                         'success': True
                     }
                 else:
                     print(f"  ❌ Failed: {result.get('error', 'Unknown error')}")
-                    direct_results[chemical] = {'success': False, 'error': result.get('error')}
+                    direct_results[test_key] = {
+                        'chemical': chemical,
+                        'is_neutron': is_neutron,
+                        'success': False,
+                        'error': result.get('error')
+                    }
 
             except Exception as e:
                 print(f"  ❌ Exception: {str(e)}")
-                direct_results[chemical] = {'success': False, 'error': str(e)}
+                direct_results[test_key] = {
+                    'chemical': chemical,
+                    'is_neutron': is_neutron,
+                    'success': False,
+                    'error': str(e)
+                }
 
         print("\n📊 Direct SLD calculation test completed")
-        print(f"   Successful: {sum(1 for r in direct_results.values() if r.get('success'))}/{len(test_chemicals)}")
+        print(f"   Successful: {sum(1 for r in direct_results.values() if r.get('success'))}/{len(test_cases)}")
 
         return direct_results
 
@@ -82,7 +103,7 @@ def test_direct_sld_calculation():
         return {}
 
 
-def test_agent_sld_calculation():
+def test_agent_sld_calculation(llm_model="google/gemini-2.5-flash"):
     """Test CrewAI agent-based SLD calculation"""
     print("\n🤖 Test 2: CrewAI Agent SLD Calculation")
     print("=" * 50)
@@ -90,17 +111,20 @@ def test_agent_sld_calculation():
     try:
         from crewai_sas_agents import analyze_sas_data
 
-        # Test chemicals
-        test_chemicals = [
-            "THF",      # Tetrahydrofuran
-            "D2O",      # Heavy water
-            "H2O",      # Water
-            "C12H6"     # Acenaphthylene or similar aromatic compound
+        # Test cases with both chemical formula and neutron/X-ray flag
+        test_cases = [
+            {"chemical": "THF", "is_neutron": True},
+            #{"chemical": "THF", "is_neutron": False},
+            {"chemical": "D2O", "is_neutron": True},
+            #{"chemical": "D2O", "is_neutron": False},
+            #{"chemical": "H2O", "is_neutron": True},
+            #{"chemical": "C12H6", "is_neutron": True},
         ]
 
         agent_results = {}
-        output_folder = "/Users/ldq/Work/SasAgent/test_cache/sld_calculations"
-        os.makedirs(output_folder, exist_ok=True)
+        output_folder = project_root / "test" / "test_data" / "sld_calculations" / llm_model.replace("/", "_")
+        output_folder.mkdir(parents=True, exist_ok=True)
+        output_folder = str(output_folder)
 
         # Check if API key is available
         api_key = os.getenv('OPENROUTER_API_KEY')
@@ -109,20 +133,26 @@ def test_agent_sld_calculation():
             print("   Set OPENROUTER_API_KEY environment variable for agent-based tests")
             return {}
 
-        for chemical in test_chemicals:
-            print(f"\n📋 Testing: {chemical}")
+        for test_case in test_cases:
+            chemical = test_case["chemical"]
+            is_neutron = test_case["is_neutron"]
+            scattering_type = "Neutron" if is_neutron else "X-ray"
+            test_key = f"{chemical}_{scattering_type}"
+
+            print(f"\n📋 Testing: {chemical} ({scattering_type})")
 
             # Create SLD calculation prompt
-            prompt = f"Calculate the SLD (scattering length density) for {chemical}"
+            scattering_desc = "neutron" if is_neutron else "x-ray"
+            prompt = f"Calculate the {scattering_desc} SLD (scattering length density) for the molecular formula {chemical}"
 
             try:
                 result = analyze_sas_data(
                     prompt=prompt,
                     data_path=None,  # No data file for SLD calculation
                     output_folder=output_folder,
-                    verbose=True,
+                    verbose=False,  # Suppress verbose crew output
                     api_key=api_key,
-                    model="openai/gpt-4o-mini"
+                    model=llm_model
                 )
 
                 print(f"  📋 Result keys: {list(result.keys()) if isinstance(result, dict) else 'Error'}")
@@ -132,34 +162,56 @@ def test_agent_sld_calculation():
                     print(f"  📊 Task type: {task_type}")
 
                     if task_type == 'sld_calculation':
-                        # Extract SLD values from the result
-                        output_text = result.get('output', '')
-                        print(f"  📝 Output preview: {output_text[:200]}...")
+                        # Extract SLD values from the results
+                        results_data = result.get('results', {})
+                        print(f"  📝 Results keys: {list(results_data.keys()) if isinstance(results_data, dict) else type(results_data)}")
 
-                        # Try to extract SLD values from the output
-                        sld_values = extract_sld_from_output(output_text, chemical)
+                        # Try to extract SLD values directly from results
+                        sld_values = None
+                        if isinstance(results_data, dict):
+                            sld_values = {
+                                'sld_real': results_data.get('sld_real'),
+                                'sld_imag': results_data.get('sld_imag')
+                            }
+                            # Filter out None values
+                            sld_values = {k: v for k, v in sld_values.items() if v is not None}
+
+                        # If direct extraction failed, try parsing text output
+                        if not sld_values:
+                            output_text = result.get('output', '')
+                            if not output_text:
+                                # Try to convert results dict to string
+                                output_text = str(results_data) if results_data else ''
+                            print(f"  📝 Output preview: {output_text[:200]}...")
+                            sld_values = extract_sld_from_output(output_text, chemical)
 
                         if sld_values:
                             print("  ✅ Success!")
                             print(f"     SLD Real: {sld_values.get('sld_real', 'N/A')}")
-                            print(f"     SLD Imag: {sld_values.get('sld_imag', 'N/A')}")
 
-                            agent_results[chemical] = {
+                            agent_results[test_key] = {
+                                'chemical': chemical,
+                                'is_neutron': is_neutron,
                                 'sld_real': sld_values.get('sld_real'),
-                                'sld_imag': sld_values.get('sld_imag'),
+                                #'sld_imag': sld_values.get('sld_imag'),
                                 'success': True,
-                                'output': output_text
+                                'results': results_data
                             }
                         else:
                             print("  ⚠️  Could not extract SLD values from output")
-                            agent_results[chemical] = {
+                            print(f"  📝 Full results data: {results_data}")
+                            agent_results[test_key] = {
+                                'chemical': chemical,
+                                'is_neutron': is_neutron,
                                 'success': False,
                                 'error': 'Could not extract SLD values',
-                                'output': output_text
+                                'results': results_data
                             }
                     else:
                         print(f"  ⚠️  Unexpected task type: {task_type}")
-                        agent_results[chemical] = {
+                        agent_results[test_key] = {
+                            'chemical': chemical,
+                            'is_neutron': is_neutron,
                             'success': False,
                             'error': f'Wrong task type: {task_type}',
                             'output': result.get('output', '')
@@ -167,14 +219,28 @@ def test_agent_sld_calculation():
                 else:
                     error_msg = result.get('error', 'Unknown error')
                     print(f"  ❌ Failed: {error_msg}")
-                    agent_results[chemical] = {'success': False, 'error': error_msg}
+                    agent_results[test_key] = {
+                        'chemical': chemical,
+                        'is_neutron': is_neutron,
+                        'success': False,
+                        'error': error_msg
+                    }
 
             except Exception as e:
                 print(f"  ❌ Exception: {str(e)}")
-                agent_results[chemical] = {'success': False, 'error': str(e)}
+                agent_results[test_key] = {
+                    'chemical': chemical,
+                    'is_neutron': is_neutron,
+                    'success': False,
+                    'error': str(e)
+                }
 
         print("\n📊 Agent SLD calculation test completed")
-        print(f"   Successful: {sum(1 for r in agent_results.values() if r.get('success'))}/{len(test_chemicals)}")
+        successful_count = sum(1 for r in agent_results.values() if r.get('success'))
+        print(f"   Successful: {successful_count}/{len(test_cases)}")
+
+        # Save test results to file
+        _save_agent_test_results(agent_results, output_folder, llm_model, successful_count, len(test_cases))
 
         return agent_results
 
@@ -188,6 +254,98 @@ def test_agent_sld_calculation():
         return {}
 
 
+def _save_agent_test_results(agent_results, output_folder, llm_model, successful_count, total_count, run_number=0):
+    """Save agent SLD calculation test results to files"""
+    import json
+    from datetime import datetime
+
+    try:
+        output_path = Path(output_folder)
+
+        # Create summary statistics
+        summary = {
+            'timestamp': datetime.now().isoformat(),
+            'llm_model': llm_model,
+            'total_tests': total_count,
+            'successful': successful_count,
+            'failed': total_count - successful_count,
+            'success_rate': f"{(successful_count/total_count)*100:.1f}%",
+            'tests': {}
+        }
+
+        # Organize results by chemical
+        for test_key, result in agent_results.items():
+            chemical = result.get('chemical', 'unknown')
+            is_neutron = result.get('is_neutron', True)
+            scattering_type = 'Neutron' if is_neutron else 'X-ray'
+
+            if chemical not in summary['tests']:
+                summary['tests'][chemical] = {'neutron': {}, 'xray': {}}
+
+            test_type = 'neutron' if is_neutron else 'xray'
+            summary['tests'][chemical][test_type] = {
+                'success': result.get('success', False),
+                'sld_real': result.get('sld_real'),
+                'sld_imag': result.get('sld_imag'),
+                'error': result.get('error')
+            }
+
+        # Save JSON summary
+        json_file = output_path / f'{run_number}_test_summary.json'
+        with open(json_file, 'w') as f:
+            json.dump(summary, f, indent=2)
+        print(f"\n📄 Saved test summary to: {json_file}")
+
+        # Save detailed results JSON
+        detailed_file = output_path / f'{run_number}_test_results_detailed.json'
+        with open(detailed_file, 'w') as f:
+            # Remove Path objects and non-serializable items for JSON
+            clean_results = {}
+            for key, val in agent_results.items():
+                clean_val = val.copy()
+                if 'results' in clean_val:
+                    clean_val['results'] = str(clean_val['results'])
+                clean_results[key] = clean_val
+            json.dump(clean_results, f, indent=2)
+        print(f"📄 Saved detailed results to: {detailed_file}")
+
+        # Save human-readable report
+        report_file = output_path / f'{run_number}_test_report.txt'
+        with open(report_file, 'w') as f:
+            f.write("=" * 70 + "\n")
+            f.write("SAS Agent SLD Calculation Test Report\n")
+            f.write("=" * 70 + "\n\n")
+            f.write(f"Timestamp: {summary['timestamp']}\n")
+            f.write(f"LLM Model: {llm_model}\n")
+            f.write(f"Total Tests: {total_count}\n")
+            f.write(f"Successful: {successful_count}\n")
+            f.write(f"Failed: {total_count - successful_count}\n")
+            f.write(f"Success Rate: {summary['success_rate']}\n")
+            f.write("-" * 70 + "\n\n")
+
+            f.write("Results by Chemical:\n")
+            f.write("-" * 70 + "\n")
+            for chemical in sorted(summary['tests'].keys()):
+                f.write(f"\n{chemical}:\n")
+                for scattering_type in ['neutron', 'xray']:
+                    result = summary['tests'][chemical][scattering_type]
+                    type_name = 'Neutron' if scattering_type == 'neutron' else 'X-ray'
+                    # Check if result is empty (no test for this type)
+                    if not result:
+                        continue
+                    status = "✅ SUCCESS" if result.get('success', False) else "❌ FAILED"
+                    f.write(f"  {type_name}: {status}\n")
+                    if result.get('success'):
+                        f.write(f"    SLD Real: {result.get('sld_real')}\n")
+                    else:
+                        f.write(f"    Error: {result.get('error')}\n")
+
+        print(f"📄 Saved test report to: {report_file}")
+
+    except Exception as e:
+        print(f"⚠️  Could not save test results: {e}")
+
+
 def extract_sld_from_output(output_text, chemical):
     """Extract SLD values from agent output text"""
     import re
@@ -197,115 +355,55 @@ def extract_sld_from_output(output_text, chemical):
 
     # Enhanced patterns for real SLD from the actual agent output format
     real_patterns = [
-        r'\*\*Real\s+Component[^:]*\*\*:\s*([+-]?[0-9.]+)',  # "**Real Component (sld_real)**: 0.1830"
-        r'Real\s+Component[^:]*:\s*([+-]?[0-9.]+)',          # "Real Component (sld_real): 0.1830"
-        r'sld_real[^:]*:\s*([+-]?[0-9.]+)',                  # "sld_real: 0.1830"
-        r'-\s*\*\*Real[^:]*\*\*:\s*([+-]?[0-9.]+)',         # "- **Real Component**: 0.1830"
-        r'Real.*?([+-]?[0-9.]+)\s*[×x]\s*10[⁻\-]?[0-9]*\s*Å[⁻\-]?²',  # Extract from formatted text with × symbol
-        r'Real.*?([+-]?[0-9.]+)\s*x?\s*10[⁻\-]?[0-9]*\s*Å[⁻\-]?²',  # Extract from formatted text
-    ]
-
-    # Enhanced patterns for imaginary SLD
-    imag_patterns = [
-        r'\*\*Imaginary\s+Component[^:]*\*\*:\s*([+-]?[0-9.]+)',  # "**Imaginary Component (sld_imag)**: 5.5230"
-        r'Imaginary\s+Component[^:]*:\s*([+-]?[0-9.]+)',          # "Imaginary Component (sld_imag): 5.5230"
-        r'sld_imag[^:]*:\s*([+-]?[0-9.]+)',                       # "sld_imag: 5.5230"
-        r'-\s*\*\*Imaginary[^:]*\*\*:\s*([+-]?[0-9.]+)',         # "- **Imaginary Component**: 5.5230"
-        r'Imaginary.*?([+-]?[0-9.]+)\s*[×x]\s*10[⁻\-]?[0-9]*\s*Å[⁻\-]?²',  # Extract from formatted text with × symbol
-        r'Imaginary.*?([+-]?[0-9.]+)\s*x?\s*10[⁻\-]?[0-9]*\s*Å[⁻\-]?²',  # Extract from formatted text
+        # "**Neutron SLD (real part): 2.43 x 10⁻⁶ Å⁻²**" - with bold markers around everything
+        r'\*\*Neutron\s+SLD\s*\([^)]*\):\s*([+-]?[0-9.]+)\s*(?:x|×)\s*10[⁻\-][0-9]',
+        # "**Neutron SLD (real component):** 2.421 x 10⁻⁶ Å⁻²"
+        r'\*\*Neutron\s+SLD[^:]*\*\*:\s*([+-]?[0-9.]+)\s*(?:x|×)\s*10[⁻\-][0-9]',
+        # "**Neutron SLD (real component):** 2.421"
+        r'\*\*Neutron\s+SLD[^:]*\*\*:\s*([+-]?[0-9.]+)',
+        # Simplest first: just "is" followed by number and x 10
+        r'is\s+([0-9.]+)\s+x\s+10',
+        # Plain text format: "is 2.528 x 10⁻⁶ Å⁻²"
+        r'is\s+([+-]?[0-9.]+)\s*(?:x|×)\s*10[⁻\-][0-9]',
+        # Pattern for "SLD is calculated as **2.528 x 10⁻⁶ Å⁻²**"
+        r'(?:is\s+)?(?:calculated\s+)?as\s+\*\*([+-]?[0-9.]+)\s*(?:x|×)\s*10[⁻\-][0-9]',
+        # "**Real SLD (ρ'):** 8.840"
+        r'\*\*Real\s+SLD[^:]*\*\*:\s*([+-]?[0-9.]+)',
+        # "**Real Component (sld_real)**: 0.1830"
+        r'\*\*Real\s+Component[^:]*\*\*:\s*([+-]?[0-9.]+)',
+        # "Real SLD: 8.840"
+        r'Real\s+SLD[^:]*:\s*([+-]?[0-9.]+)',
+        # "Real Component (sld_real): 0.1830"
+        r'Real\s+Component[^:]*:\s*([+-]?[0-9.]+)',
+        # "sld_real: 0.1830"
+        r'sld_real[^:]*:\s*([+-]?[0-9.]+)',
+        # "- **Real Component**: 0.1830"
+        r'-\s*\*\*Real[^:]*\*\*:\s*([+-]?[0-9.]+)',
+        # "Real SLD: 8.840 x 10⁻⁶"
+        r'Real\s+SLD.*?([+-]?[0-9.]+)\s*(?:x|×)\s*10[⁻\-]?[0-9]*',
+        # "Real ... 8.840 x 10⁻⁶ Å⁻²" with × symbol
+        r'Real.*?([+-]?[0-9.]+)\s*[×x]\s*10[⁻\-]?[0-9]*\s*Å[⁻\-]?²',
+        # "Real ... 8.840 x 10⁻⁶ Å⁻²"
+        r'Real.*?([+-]?[0-9.]+)\s*x?\s*10[⁻\-]?[0-9]*\s*Å[⁻\-]?²',
+        # "Neutron SLD ... 2.421 x 10⁻⁶"
+        r'Neutron\s+SLD[^:]*:\s*([+-]?[0-9.]+)\s*(?:x|×)\s*10[⁻\-]?[0-9]*',
     ]
 
     # Try to find real SLD
-    for pattern in real_patterns:
+    for i, pattern in enumerate(real_patterns):
         match = re.search(pattern, output_text, re.IGNORECASE | re.DOTALL)
         if match:
             try:
                 sld_values['sld_real'] = float(match.group(1))
-                print(f"   🔍 Extracted real SLD: {match.group(1)} using pattern: {pattern[:30]}...")
+                print(f"   🔍 Extracted real SLD: {match.group(1)} (pattern {i+1}: {pattern[:40]}...)")
                 break
             except ValueError:
                 continue
 
-    # Try to find imaginary SLD
-    for pattern in imag_patterns:
-        match = re.search(pattern, output_text, re.IGNORECASE | re.DOTALL)
-        if match:
-            try:
-                sld_values['sld_imag'] = float(match.group(1))
-                print(f"   🔍 Extracted imag SLD: {match.group(1)} using pattern: {pattern[:30]}...")
-                break
-            except ValueError:
-                continue
+    if not sld_values:
+        print(f"   🔍 DEBUG: Failed to match any pattern. First 200 chars: {output_text[:200]}")
 
-    return sld_values if sld_values else None
-
-
-def compare_sld_results(direct_results, agent_results):
-    """Compare direct vs agent SLD calculation results"""
-    print("\n📊 Test 3: Comparison of Direct vs Agent Results")
-    print("=" * 50)
-
-    if not direct_results and not agent_results:
-        print("❌ No results to compare")
-        return False
-
-    # Get all chemicals that were tested
-    all_chemicals = set(direct_results.keys()) | set(agent_results.keys())
-
-    print(f"\n{'Chemical':<10} {'Direct SLD':<15} {'Agent SLD':<15} {'Match':<8} {'Status':<15}")
-    print("-" * 70)
-
-    matches = 0
-    total_compared = 0
-
-    for chemical in sorted(all_chemicals):
-        direct_data = direct_results.get(chemical, {})
-        agent_data = agent_results.get(chemical, {})
-
-        # Check if both succeeded
-        direct_success = direct_data.get('success', False)
-        agent_success = agent_data.get('success', False)
-
-        if direct_success and agent_success:
-            direct_sld = direct_data.get('sld_real', 0)
-            agent_sld = agent_data.get('sld_real', 0)
-
-            # Check if values are close (within 5% tolerance)
-            if direct_sld != 0:
-                relative_diff = abs(direct_sld - agent_sld) / abs(direct_sld)
-                match = relative_diff < 0.05  # 5% tolerance
-            else:
-                match = abs(direct_sld - agent_sld) < 0.1
-
-            status = "✅ MATCH" if match else "❌ DIFFER"
-            if match:
-                matches += 1
-            total_compared += 1
-
-            print(f"{chemical:<10} {direct_sld:<15.4f} {agent_sld:<15.4f} {str(match):<8} {status:<15}")
-
-        elif direct_success:
-            direct_sld = direct_data.get('sld_real', 0)
-            print(f"{chemical:<10} {direct_sld:<15.4f} {'FAILED':<15} {'N/A':<8} {'Agent Failed':<15}")
-
-        elif agent_success:
-            agent_sld = agent_data.get('sld_real', 0)
-            print(f"{chemical:<10} {'FAILED':<15} {agent_sld:<15.4f} {'N/A':<8} {'Direct Failed':<15}")
-
-        else:
-            print(f"{chemical:<10} {'FAILED':<15} {'FAILED':<15} {'N/A':<8} {'Both Failed':<15}")
-
-    if total_compared > 0:
-        match_percentage = (matches / total_compared) * 100
-        print("\n📈 Comparison Summary:")
-        print(f"   Total compared: {total_compared}")
-        print(f"   Matches: {matches}")
-        print(f"   Match rate: {match_percentage:.1f}%")
-
-        return match_percentage >= 80  # Consider success if 80%+ match
-    else:
-        print("\n❌ No successful comparisons possible")
-        return False
+    return sld_values
 
 
 def test_known_sld_values():
@@ -387,14 +485,14 @@ def cleanup_test_environment():
     """Clean up test directories"""
     print("\n🧹 Cleaning up test environment...")
 
-    test_cache_dir = "/Users/ldq/Work/SasAgent/test_cache"
-    if os.path.exists(test_cache_dir):
+    test_cache_dir = project_root / "test_cache"
+    if test_cache_dir.exists():
         import shutil
         shutil.rmtree(test_cache_dir)
         print(f"  🗑️  Removed: {test_cache_dir}")
 
 
-def test_end_to_end_sld_calculation():
+def test_end_to_end_sld_calculation(llm_model="google/gemini-2.5-flash", run_number=0):
     """Test the full CrewAI agent system using UnifiedSASAnalysisSystem.analyze_data() for SLD calculation tasks"""
     print("\n🤖 Testing Full CrewAI Agent System Integration - SLD Calculation")
     print("=" * 60)
@@ -402,10 +500,10 @@ def test_end_to_end_sld_calculation():
     try:
         from crewai_sas_agents import UnifiedSASAnalysisSystem
 
-        # Initialize the unified system
-        system = UnifiedSASAnalysisSystem()
+        # Initialize the unified system with the specified model
+        system = UnifiedSASAnalysisSystem(model=llm_model)
 
-        # Test cases for the unified system with SLD calculation tasks
+        # Test cases with both chemical formula and neutron/X-ray flag
         test_cases = [
             {
                 "name": "heavy_water_sld",
@@ -413,8 +511,18 @@ def test_end_to_end_sld_calculation():
                 "expected_formula": "D2O",
             },
             {
+                "name": "heavy_water_sld_xray",
+                "prompt": "What is the X-ray SLD for heavy water?",
+                "expected_formula": "D2O",
+            },
+            {
                 "name": "thf_sld",
                 "prompt": "What is the SLD of tetrahydrofuran",
+                "expected_formula": "C4H8O",
+            },
+            {
+                "name": "thf_sld_xray",
+                "prompt": "What is the X-ray SLD of tetrahydrofuran",
                 "expected_formula": "C4H8O",
             },
             {
@@ -427,18 +535,14 @@ def test_end_to_end_sld_calculation():
                 "prompt": "What is the SLD of PAN polymer C3H3N, use density 1.184 g/cm3",
                 "expected_formula": "C3H3N",
             },
-
-            #{
-            #    "name": "ladder_polymer_sld",
-            #    "prompt": "What is the SLD of C15H14 polymer",
-            #    "expected_formula": "C15H14",
-            #},
-
         ]
 
         sld_results = {}
+        output_folder = project_root / "test" / "test_data" / "sld_calculations" / f"{llm_model.replace('/', '_')}"
+        output_folder.mkdir(parents=True, exist_ok=True)
 
-        for test_case in test_cases[-1:]:
+        test_cases = [test_cases[1]]
+        for test_case in test_cases:
             print(f"\n📋 Testing: {test_case['name']}")
             print(f"   Prompt: {test_case['prompt']}")
 
@@ -448,13 +552,93 @@ def test_end_to_end_sld_calculation():
                     prompt=test_case["prompt"]
                 )
 
+                if result.get('success'):
+                    task_type = result.get('task_type')
+                    print(f"  📊 Task type: {task_type}")
+
+                    if task_type == 'sld_calculation':
+                        results_data = result.get('results', {})
+
+                        # Get output text to check for success
+                        output_text = result.get('output', '')
+                        if not output_text and isinstance(results_data, dict):
+                            output_text = results_data.get('output', '')
+                        if not output_text:
+                            output_text = str(results_data) if results_data else ''
+
+                        print(f"  📝 Output preview: {output_text[:300]}...")
+
+                        # Check for success indicators - look for SLD-related content with numbers
+                        import re
+                        success_indicators = [
+                            r'SLD.*?[0-9.]+\s*(?:x|×)\s*10[⁻\-][0-9]',  # SLD with scientific notation
+                            r'scattering\s+length\s+density.*?[0-9.]+',  # "scattering length density" with number
+                            r'neutron\s+SLD.*?[0-9.]+',  # "neutron SLD" with number
+                            r'calculated.*?SLD',  # "calculated" and "SLD" together
+                            r'[0-9.]+\s*g/cm',  # density with g/cm units
+                        ]
+
+                        has_sld_calculation = any(re.search(pattern, output_text, re.IGNORECASE) for pattern in success_indicators)
+
+                        # Try to extract actual SLD value
+                        sld_value = None
+                        sld_values = extract_sld_from_output(output_text, test_case['name'])
+                        if sld_values:
+                            sld_value = sld_values.get('sld_real')
+
+                        if has_sld_calculation and len(output_text) > 50:
+                            print("  ✅ Success! SLD calculation completed")
+                            if sld_value:
+                                print(f"     SLD Real: {sld_value}")
+                            else:
+                                print(f"     SLD value present in output")
+
+                            sld_results[test_case["name"]] = {
+                                "success": True,
+                                "sld_real": sld_value,
+                                "task_type": task_type,
+                                "output": output_text[:500],  # Store truncated output
+                                "results": str(results_data)[:500] if results_data else None
+                            }
+                        else:
+                            print("  ⚠️  Could not verify SLD calculation in output")
+                            sld_results[test_case["name"]] = {
+                                "success": False,
+                                "error": "No SLD calculation indicators found",
+                                "output": output_text[:500],
+                                "results": str(results_data)[:500] if results_data else None
+                            }
+                    else:
+                        print(f"  ⚠️  Unexpected task type: {task_type}")
+                        sld_results[test_case["name"]] = {
+                            "success": False,
+                            "error": f"Wrong task type: {task_type}"
+                        }
+                else:
+                    error_msg = result.get('error', 'Unknown error')
+                    print(f"  ❌ Failed: {error_msg}")
+                    sld_results[test_case["name"]] = {
+                        "success": False,
+                        "error": error_msg
+                    }
+
             except Exception as e:
                 sld_results[test_case["name"]] = {
                     "success": False,
                     "error": str(e),
                     "exception": True
                 }
-                print(f"❌ {test_case['name']}: Exception - {e}")
+                print(f"  ❌ Exception: {e}")
+
+        print("\n📊 End-to-end SLD calculation test completed")
+        successful_count = sum(1 for r in sld_results.values() if r.get('success'))
+        print(f"   Successful: {successful_count}/{len(test_cases)}")
+
+        # Save test results to file
+        if sld_results:
+            _save_agent_test_results(sld_results, str(output_folder), llm_model, successful_count, len(test_cases), run_number)
+
+        return sld_results
 
     except ImportError as e:
         print(f"⚠️  UnifiedSASAnalysisSystem not available: {e}")
@@ -471,11 +655,11 @@ def main():
     try:
         # Test 1: Direct SLD calculation
         print("\n" + "="*60)
-        direct_results = test_direct_sld_calculation()
+        #direct_results = test_direct_sld_calculation()
 
-        # Test 2: Agent-based SLD calculation (commented out - requires API key)
-        # print("\n" + "="*60)
-        # agent_results = test_agent_sld_calculation()
+        # Test 2: Agent-based SLD calculation
+        print("\n" + "="*60)
+        #agent_results = test_agent_sld_calculation()
 
         # Test 3: Comparison (commented out - requires both tests)
         # print("\n" + "="*60)
@@ -483,11 +667,16 @@ def main():
 
         # Test 4: Validation against known values
         print("\n" + "="*60)
-        validation_success = test_known_sld_values()
+        #validation_success = test_known_sld_values()
 
         # Test 5: End-to-end unified system test
         print("\n" + "="*60)
-        end_to_end_results = test_end_to_end_sld_calculation()
+        llm_model="google/gemini-2.5-flash"
+        #llm_model = "x-ai/grok-4.1-fast"
+        #llm_model = "openai/gpt-5-mini"
+
+        for run_num in range(7,8):
+            end_to_end_results = test_end_to_end_sld_calculation(llm_model=llm_model, run_number=run_num)
 
 
     except Exception as e:

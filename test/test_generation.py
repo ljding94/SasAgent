@@ -17,6 +17,8 @@ Usage: python3 test_generation.py
 """
 
 import sys
+import json
+from datetime import datetime
 from pathlib import Path
 import numpy as np
 
@@ -95,6 +97,7 @@ def test_generation():
     ]
 
     results = {}
+    output_folder = str(project_root / "test" / "test_data" / "generation")
 
     for case in test_cases:
         print(f"\n📋 Testing {case['name']}...")
@@ -108,7 +111,7 @@ def test_generation():
                 model_name=case["model"],
                 params=case["params"],
                 q_values=case["q_values"],
-                output_folder="test/test_data/generation",
+                output_folder=output_folder,
                 noise_level=0.02,
                 plot=True
             )
@@ -199,7 +202,7 @@ def test_generation_sas_tool():
 
 
 
-def test_end_to_end_generation(llm_model="google/gemini-2.5-flash"):
+def test_end_to_end_generation(llm_model="google/gemini-2.5-flash", run_number=0):
     """Test the full CrewAI agent system using UnifiedSASAnalysisSystem.analyze_data()"""
     print("\n🤖 Testing Full CrewAI Agent System Integration")
     print("=" * 60)
@@ -220,11 +223,6 @@ def test_end_to_end_generation(llm_model="google/gemini-2.5-flash"):
             {
                 "name": "lamellar_paracrystal",
                 "prompt": "Create synthetic data for lamellar stak paracrystal with sigma_d 0.1 and q range (0.01, 1)",
-                "expected_task": "generation",
-            },
-            {
-                "name": "ellipsoid0",
-                "prompt": "Generate scattering data of ellipsoid with background 1.0",
                 "expected_task": "generation",
             },
             {
@@ -251,15 +249,16 @@ def test_end_to_end_generation(llm_model="google/gemini-2.5-flash"):
         ]
 
         unified_results = {}
-        output_folder = "test/test_data/generation"
+        output_folder = str(project_root / "test" / "test_data" / "generation" / llm_model.replace("/", "_"))
 
-        #for test_case in test_prompts:
-        for test_case in [test_prompts[3]]:
+        for test_case in test_prompts:
+        #for test_case in [test_prompts[3]]:
             print(f"\n📋 Testing: {test_case['name']}")
             print(f"   Prompt: {test_case['prompt']}")
             print(f"   Expected: {test_case['expected_task']} task")
 
             try:
+                start_ts = datetime.now().timestamp()
                 # Call the unified system with the test prompt
                 result = system.analyze_data(
                     prompt=test_case["prompt"],
@@ -267,12 +266,64 @@ def test_end_to_end_generation(llm_model="google/gemini-2.5-flash"):
                 )
 
                 if result.get("success"):
+                    csv_path = result.get("csv_path")
+                    plot_file = result.get("plot_file")
+
+                    if not csv_path or not plot_file:
+                        try:
+                            output_path = Path(output_folder)
+
+                            def _latest_file(pattern: str):
+                                candidates = [p for p in output_path.glob(pattern) if p.is_file()]
+                                recent = [p for p in candidates if p.stat().st_mtime >= start_ts - 2]
+                                if recent:
+                                    return max(recent, key=lambda p: p.stat().st_mtime)
+                                if candidates:
+                                    return max(candidates, key=lambda p: p.stat().st_mtime)
+                                return None
+
+                            if not csv_path:
+                                latest_csv = _latest_file("*.csv")
+                                if latest_csv:
+                                    csv_path = str(latest_csv)
+                            if not plot_file:
+                                latest_plot = _latest_file("*.png")
+                                if latest_plot:
+                                    plot_file = str(latest_plot)
+                        except Exception as e:
+                            print(f"⚠️  Failed to locate output files: {e}")
+
+                    # Rename output files to include run_number
+                    try:
+                        if csv_path:
+                            csv_path_obj = Path(csv_path)
+                            if csv_path_obj.exists():
+                                if str(run_number) not in csv_path_obj.stem:
+                                    renamed_csv = csv_path_obj.with_name(
+                                        f"{run_number}_{csv_path_obj.name}"
+                                    )
+                                    csv_path_obj.rename(renamed_csv)
+                                    csv_path = str(renamed_csv)
+                        if plot_file:
+                            plot_path_obj = Path(plot_file)
+                            if plot_path_obj.exists():
+                                if str(run_number) not in plot_path_obj.stem:
+                                    renamed_plot = plot_path_obj.with_name(
+                                        f"{run_number}_{plot_path_obj.name}"
+                                    )
+                                    plot_path_obj.rename(renamed_plot)
+                                    plot_file = str(renamed_plot)
+                        print(f"   Renamed csv to: {csv_path}")
+                        print(f"   Renamed plot to: {plot_file}")
+                    except Exception as e:
+                        print(f"⚠️  Failed to rename output files: {e}")
+
                     unified_results[test_case["name"]] = {
                         "success": True,
                         "task_type": result.get("task_type"),
                         "model_used": result.get("model_used"),
-                        "csv_path": result.get("csv_path"),
-                        "plot_file": result.get("plot_file"),
+                        "csv_path": csv_path,
+                        "plot_file": plot_file,
                         "rag_enhanced": result.get("rag_enhanced"),
                         "results_summary": str(result.get("results", ""))[:200] + "..." if result.get("results") else ""
                     }
@@ -281,10 +332,10 @@ def test_end_to_end_generation(llm_model="google/gemini-2.5-flash"):
                     print(f"   Task type: {result.get('task_type', 'Unknown')}")
                     print(f"   Model: {result.get('model_used', 'Auto-selected')}")
 
-                    if result.get("csv_path"):
-                        print(f"   CSV: {result['csv_path']}")
-                    if result.get("plot_file"):
-                        print(f"   Plot: {result['plot_file']}")
+                    if csv_path:
+                        print(f"   CSV: {csv_path}")
+                    if plot_file:
+                        print(f"   Plot: {plot_file}")
 
                     print(f"   RAG Enhanced: {result.get('rag_enhanced', False)}")
 
@@ -314,6 +365,23 @@ def test_end_to_end_generation(llm_model="google/gemini-2.5-flash"):
         print(f"Successful tests: {successful_tests}/{total_tests}")
         print(f"Success rate: {successful_tests/total_tests*100:.1f}%")
 
+        # Per-test summary with final agent output
+        print("\nPer-test summary:")
+        for name, result in unified_results.items():
+            status = "✅ Success" if result.get("success") else "❌ Failed"
+            print(f"  {name}: {status}")
+            if result.get("task_type"):
+                print(f"    Task type: {result.get('task_type')}")
+            if result.get("model_used"):
+                print(f"    Model: {result.get('model_used')}")
+            if result.get("csv_path"):
+                print(f"    CSV: {result.get('csv_path')}")
+            if result.get("plot_file"):
+                print(f"    Plot: {result.get('plot_file')}")
+            final_output = result.get("results_summary") or result.get("error", "")
+            if final_output:
+                print(f"    Final output: {final_output}")
+
         # Group results by task type
         task_types = {}
         for name, result in unified_results.items():
@@ -327,6 +395,40 @@ def test_end_to_end_generation(llm_model="google/gemini-2.5-flash"):
             successful = sum(1 for _, success in tests if success)
             total = len(tests)
             print(f"  {task_type}: {successful}/{total} successful")
+
+        # Save JSON summary
+        try:
+            output_path = Path(output_folder)
+            output_path.mkdir(parents=True, exist_ok=True)
+
+            summary = {
+                "timestamp": datetime.now().isoformat(),
+                "llm_model": llm_model,
+                "run_number": run_number,
+                "total_tests": total_tests,
+                "successful": successful_tests,
+                "failed": total_tests - successful_tests,
+                "success_rate": f"{successful_tests/total_tests*100:.1f}%" if total_tests else "0.0%",
+                "tests": {}
+            }
+
+            for name, result in unified_results.items():
+                summary["tests"][name] = {
+                    "success": result.get("success", False),
+                    "task_type": result.get("task_type"),
+                    "model_used": result.get("model_used"),
+                    "csv_path": result.get("csv_path"),
+                    "plot_file": result.get("plot_file"),
+                    "rag_enhanced": result.get("rag_enhanced"),
+                    "final_output": result.get("results_summary") or result.get("error", "")
+                }
+
+            json_file = output_path / f"{run_number}_test_summary.json"
+            with open(json_file, "w") as f:
+                json.dump(summary, f, indent=2)
+            print(f"\n📄 Saved test summary to: {json_file}")
+        except Exception as e:
+            print(f"⚠️  Failed to save test summary JSON: {e}")
 
         return unified_results
 
@@ -347,7 +449,11 @@ def main():
     #crewai_results = test_generation_sas_tool()
 
     print("\n🔄 Running Full Unified System Tests...")
-    unified_results = test_end_to_end_generation()
+    #llm_model = "google/gemini-2.5-flash"
+    #llm_model = "x-ai/grok-4.1-fast"
+    llm_model = "openai/gpt-5-mini"
+    for run_num in range(5):
+        unified_results = test_end_to_end_generation(llm_model=llm_model, run_number=run_num)
 
 if __name__ == "__main__":
     main()

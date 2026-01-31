@@ -176,15 +176,20 @@ def create_coordinator_task(prompt: str, folder_path: str = None, data_path: str
            - Look for phrases like "using sphere model", "fit to cylinder model", "use lamellar model"
            - Extract the specific model name (e.g., "sphere", "cylinder", "lamellar")
            - If no explicit model is mentioned, leave as "auto"
-        6. Output structured decision in this EXACT format:
+        6. CRITICAL for SLD calculations: Detect radiation type (NEUTRON or X-RAY):
+           - Look for explicit keywords: "neutron", "sans", "x-ray", "saxs", "synchrotron", "xray"
+           - Default to "NEUTRON" if ambiguous
+           - This is CRUCIAL for correct SLD calculation!
+        7. Output structured decision in this EXACT format:
 
         INTENT: [system_introduction|sld_calculation|generation|fitting]
         SAMPLE_DESCRIPTION: [extracted_description]
         DATA_PATH: [use_provided_data_file_path_or_extract_from_prompt_or_none]
         PARAMETERS: [extracted_parameters_with_explicit_sld_values_or_none]
         MODEL: [explicitly_requested_model_name_or_auto]
+        RAD_TYPE: [NEUTRON|X-RAY]
         """,
-        expected_output="Structured decision with intent classification (system_introduction, sld_calculation, generation, or fitting)",
+        expected_output="Structured decision with intent classification (system_introduction, sld_calculation, generation, or fitting) and radiation type for SLD calculations",
         agent=create_coordinator_agent(api_key, model)
     )
 
@@ -315,7 +320,17 @@ def create_sld_calculator_agent(api_key: str = None, model: str = None) -> Agent
         goal="Calculate scattering length density (SLD) values from molecular formulas and provide clear results",
         backstory="""You are an expert in calculating neutron and x-ray scattering length densities.
         You help users calculate SLD values from molecular formulas and densities using SasView's calculator.
-        You provide clear, accurate results with proper units and context.""",
+        You provide clear, accurate results with proper units and context.
+
+        CRITICAL: Always detect whether the user wants NEUTRON or X-RAY SLD:
+        - Keywords for NEUTRON SLD: "neutron", "sans", "small-angle neutron", "cold neutron", "thermal neutron", "dn"
+        - Keywords for X-RAY SLD: "x-ray", "saxs", "small-angle x-ray", "synchrotron", "dx", "xray"
+        - Default to NEUTRON if ambiguous
+
+        When calling the SLD calculator tool:
+        - Set is_neutron=True for neutron SLD calculations
+        - Set is_neutron=False for x-ray SLD calculations
+        - Always extract and use only the real component (sld_real) of the result""",
         verbose=True,
         allow_delegation=False,
         tools=[SLDCalculatorTool()],
@@ -323,44 +338,39 @@ def create_sld_calculator_agent(api_key: str = None, model: str = None) -> Agent
     )
 
 
-def create_interactive_fitting_agent(api_key: str = None, model: str = None) -> Agent:
-    """Create an interactive fitting agent that can work with provided parameters or prompt for them."""
+def create_interactive_fitting_agent(api_key: str = None, model: str = None, include_rag_tool: bool = True) -> Agent:
+    """
+    Create an interactive fitting agent that can work with provided parameters or prompt for them.
+
+    Args:
+        api_key: Optional API key for LLM
+        model: Optional model name for LLM
+        include_rag_tool: If True, include RAG model selector tool. If False, only include fitting and SLD tools.
+                         Should be False when a specific model is already selected to prevent unwanted tool calls.
+    """
     llm = setup_llm(api_key, model)
+
+    # Build tool list based on whether RAG is needed
+    tools = [SasViewFittingTool(), SLDCalculatorTool()]
+    if include_rag_tool:
+        tools.insert(0, RAGModelSelectorTool())
+
+    backstory = """Expert SAS fitting specialist. When parameters are provided, extract and use them to perform fitting immediately.
+
+Key rules:
+- Use specific model name if provided (don't call rag_model_selector)
+- Fix ONLY sld and sld_solvent parameters (never fix structural parameters)
+- Use SLD calculator for formulas (D2O, C15H14, etc.) - extract real part only
+- All other parameters (length, radius, kuhn_length) should be fitted, not fixed
+- After fitting succeeds, report the model name, R² score, and plot path briefly"""
+
     return Agent(
         role="Interactive SAS Fitting Specialist",
         goal="Perform SAS data fitting using provided parameters or guide users through parameter collection",
-        backstory="""You are an expert SAS data fitting specialist who can work in two modes:
-
-        1. AUTOMATIC MODE: When SLD parameters are provided in the task, extract and use them directly:
-           - When user says "sample SLD is about 1" → use sld=1.0 (assume SasView units: 10^-6 Å^-2)
-           - When user says "solvent is D2O" → calculate SLD using SLD calculator tool and use ONLY the real part
-           - When user says "SLD 2.0e-6 Å^-2" → use sld=2.0 (strip the e-6 since SasView expects 10^-6 units)
-
-        2. INTERACTIVE MODE: When no parameters are provided, guide users through parameter collection.
-
-        MODEL SELECTION LOGIC:
-        - FIRST: Check if the task specifies a specific model name (e.g., "USE sphere model directly")
-        - If YES: Use that exact model name with sasview_fitting_tool immediately - DO NOT use rag_model_selector
-        - If NO or "auto": Then use rag_model_selector to recommend a model
-
-        CRITICAL PARAMETER HANDLING:
-        - FIXED PARAMETERS (never fit these): ONLY sld and sld_solvent parameters should be fixed
-        - GUIDANCE PARAMETERS (use as initial guesses): All other parameters like length, radius, kuhn_length should be fitted, not fixed
-
-        Examples of parameter handling:
-        - "sample SLD about 1, kuhn length about 8" → fixed_params={"sld": 1.0}, parameter_guidance="kuhn_length=8"
-        - "SLD 1.0, radius 20nm" → fixed_params={"sld": 1.0}, parameter_guidance="radius=200.0" (convert to Angstroms)
-        - "solvent D2O, length 100nm" → fixed_params={"sld_solvent": 6.4}, parameter_guidance="length=1000.0"
-
-        NEVER FIX structural parameters like length, radius, kuhn_length, scale, background - these should be fitted!
-        Use SLD calculator tool for molecular formulas (H2O, D2O, etc.) and extract ONLY the real part for fitting
-        For direct numerical values, assume they're in SasView units (10^-6 Å^-2)
-        CRITICAL: For SAS fitting, only use the real part (sld_real) from SLD calculations - ignore imaginary components
-
-        When parameters are given, extract them automatically and perform the complete fitting with plots.""",
+        backstory=backstory,
         verbose=True,
         allow_delegation=True,  # Can delegate to SLD calculator
-        tools=[RAGModelSelectorTool(), SasViewFittingTool(), SLDCalculatorTool()],
+        tools=tools,
         llm=llm
     )
 
@@ -399,8 +409,34 @@ def create_model_selector_agent(api_key: str = None, model: str = None) -> Agent
     )
 
 
-def create_sld_calculation_task(formula: str, density: float = None, sample_description: str = "", api_key: str = None, model: str = None) -> Task:
-    """Create a task for SLD calculation."""
+def create_sld_calculation_task(formula: str, density: float = None, sample_description: str = "", rad_type: str = "NEUTRON", api_key: str = None, model: str = None) -> Task:
+    """Create a task for SLD calculation.
+
+    Args:
+        formula: Molecular formula or sample description
+        density: Optional density in g/cm³
+        sample_description: Full sample description from coordinator
+        rad_type: Radiation type ("NEUTRON" or "X-RAY"), from coordinator or default
+        api_key: Optional API key for LLM
+        model: Optional model name for LLM
+    """
+    # Validate and normalize rad_type
+    rad_type = rad_type.upper() if rad_type else "NEUTRON"
+    if rad_type not in ["NEUTRON", "X-RAY"]:
+        rad_type = "NEUTRON"  # Default to neutron if invalid value
+
+    # Detect if user wants neutron or x-ray SLD from the sample description (fallback)
+    desc_lower = (sample_description or "").lower()
+    is_xray_keywords = any(word in desc_lower for word in ['x-ray', 'saxs', 'small-angle x-ray', 'synchrotron', 'dx', 'xray', 'x ray', 'x-ray sld'])
+
+    # Use coordinator's RAD_TYPE if provided, otherwise detect from sample description
+    final_rad_type = rad_type
+    if rad_type == "NEUTRON" and is_xray_keywords:
+        # If coordinator didn't detect x-ray but description has x-ray keywords, override
+        final_rad_type = "X-RAY"
+
+    is_neutron_param = final_rad_type == "NEUTRON"
+
     return Task(
         description=f"""
         Calculate the scattering length density (SLD) for the given molecular formula.
@@ -408,20 +444,25 @@ def create_sld_calculation_task(formula: str, density: float = None, sample_desc
         Formula: {formula}
         Density: {density if density else 'Extract from sample description or use typical value'}
         Sample Description: {sample_description}
+        SLD Type Requested: {final_rad_type}
 
         Instructions:
-        1. Use the SLD calculator tool to compute neutron SLD
-        2. If density is not provided, estimate reasonable density based on the molecular formula
-        3. Provide clear results with proper units (10⁻⁶ Å⁻²)
-        4. Include both real and imaginary components
-        5. Add context about the material if possible
+        1. CRITICAL: You MUST calculate {final_rad_type} SLD (NOT the other type)
+           - {final_rad_type} SLD is the only correct answer for this request
+           - Set is_neutron={is_neutron_param} when calling the SLD calculator tool
+        2. Use the SLD calculator tool with is_neutron={'True' if is_neutron_param else 'False'}
+        3. If density is not provided, estimate reasonable density based on the molecular formula
+        4. Extract and report ONLY the real component of the SLD (sld_real)
+        5. Provide clear results with proper units (10⁻⁶ Å⁻²)
+        6. Add context about the material if possible
 
         Expected Output:
+        - SLD type: {final_rad_type} (MUST be {final_rad_type}, not the other type)
         - SLD calculation results with clear units
         - Material context and properties
         - Recommendations for use in SAS modeling
         """,
-        expected_output="Complete SLD calculation results with proper units and context",
+        expected_output="Complete SLD calculation results with SLD type {final_rad_type} clearly stated and proper units and context",
         agent=create_sld_calculator_agent(api_key, model)
     )
 
@@ -431,6 +472,9 @@ def create_interactive_fitting_task(data_path: str, sample_description: str = ""
 
     # Check if parameters are already provided
     params_provided = parameters and parameters.strip() and parameters.lower() != "none"
+
+    # Determine if we should include RAG tool: only if model is "auto" (not specified)
+    include_rag = requested_model.lower() == "auto"
 
     if params_provided:
         # Parameters are provided - proceed directly with fitting
@@ -466,10 +510,9 @@ def create_interactive_fitting_task(data_path: str, sample_description: str = ""
         - "solvent D2O" → fixed_params={{"sld_solvent": calculated_value}}
 
         Expected Output:
-        - Model recommendation with confidence
-        - Fitting results with fixed SLD parameters
-        - Quality assessment and interpretation
-        - Generated plots saved to appropriate folder
+        - Fitting completed successfully
+        - R² score and quality metrics
+        - Plot saved to output folder
         """
     else:
         # No parameters provided - use interactive mode
@@ -491,16 +534,15 @@ def create_interactive_fitting_task(data_path: str, sample_description: str = ""
         CRITICAL: Ask for SLD parameters before fitting. Use delegation to SLD calculator when formulas are provided.
 
         Expected Output:
-        - Model recommendation with confidence
-        - SLD parameter collection process
-        - Fitting results with fixed parameters
-        - Quality assessment and interpretation
+        - Fitting completed successfully
+        - R² score and quality metrics
+        - Plot saved to output folder
         """
 
     return Task(
         description=task_description,
-        expected_output="Complete fitting workflow with results and plots",
-        agent=create_interactive_fitting_agent(api_key, model)
+        expected_output="Fitting completed. Model: [model_name], R²: [score], Plot: [path]",
+        agent=create_interactive_fitting_agent(api_key, model, include_rag_tool=include_rag)
     )
 
 
@@ -590,7 +632,7 @@ class SasViewFittingTool(BaseTool):
             if not os.path.exists(csv_path):
                 return {"error": f"Data file not found: {csv_path}"}
 
-            # Always use plots directory for fitting output (consistent with test scripts)
+            # Use provided output_dir, or fallback to cache/plots or local plots directory
             if not output_dir:
                 # Try to use cache/plots directory if we're in the web app context
                 cache_plots_dir = os.path.join(os.getcwd(), "cache", "plots")
@@ -601,14 +643,8 @@ class SasViewFittingTool(BaseTool):
                     output_dir = os.path.join(os.getcwd(), "plots")
                     os.makedirs(output_dir, exist_ok=True)
             else:
-                # Even if output_dir is provided, redirect fitting plots to plots directory
-                # This ensures consistency between test scripts and web app
-                cache_plots_dir = os.path.join(os.getcwd(), "cache", "plots")
-                if os.path.exists(cache_plots_dir):
-                    output_dir = cache_plots_dir
-                else:
-                    # If cache/plots doesn't exist, but output_dir was provided, use it
-                    pass
+                # Use the provided output_dir, creating it if necessary
+                os.makedirs(output_dir, exist_ok=True)
 
             # Parse parameter constraints from guidance text
             param_constraints = self._parse_parameter_guidance(parameter_guidance)
@@ -1448,7 +1484,7 @@ class SLDCalculatorTool(BaseTool):
 
     Returns:
     - success: True/False
-    - result: Dict with SLD values (sld_real, sld_imag, etc.)
+    - result: Dict with SLD values (sld_real,  etc.)
     - formula: Input formula
     - density: Used density
 
@@ -1537,7 +1573,7 @@ class SLDCalculatorTool(BaseTool):
 
             # Use default wavelength if not provided
             if wavelength is None:
-                wavelength = 6.0 if is_neutron else None
+                wavelength = 6.0 if is_neutron else 1.54  # 1.54 Å is Cu Kα X-ray wavelength
 
             result = calculate_sld(normalized_formula, density, wavelength, is_neutron)
 
@@ -1733,13 +1769,17 @@ class UnifiedSASAnalysisSystem:
 
                 # Try multiple regex patterns to handle different formatting
                 patterns = [
-                    # Pattern 1: Standard format with potential spaces (with MODEL field)
+                    # Pattern 1: Standard format with potential spaces (with MODEL and RAD_TYPE fields)
+                    r"INTENT:\s*(system_introduction|sld_calculation|generation|fitting)\s*\n?\s*SAMPLE_DESCRIPTION:\s*(.*?)\s*\n?\s*DATA_PATH:\s*(.*?)\s*\n?\s*PARAMETERS:\s*(.*?)\s*\n?\s*MODEL:\s*(.*?)\s*\n?\s*RAD_TYPE:\s*(.*?)(?:\n|$)",
+                    # Pattern 2: More flexible line-by-line format (with MODEL and RAD_TYPE)
+                    r"INTENT:\s*(system_introduction|sld_calculation|generation|fitting).*?SAMPLE_DESCRIPTION:\s*(.*?).*?DATA_PATH:\s*(.*?).*?PARAMETERS:\s*(.*?).*?MODEL:\s*(.*?).*?RAD_TYPE:\s*(.*?)(?:\n|$)",
+                    # Pattern 3: Format with MODEL field but without RAD_TYPE (for backward compatibility)
                     r"INTENT:\s*(system_introduction|sld_calculation|generation|fitting)\s*\n?\s*SAMPLE_DESCRIPTION:\s*(.*?)\s*\n?\s*DATA_PATH:\s*(.*?)\s*\n?\s*PARAMETERS:\s*(.*?)\s*\n?\s*MODEL:\s*(.*?)(?:\n|$)",
-                    # Pattern 2: More flexible line-by-line format (with MODEL field)
+                    # Pattern 4: More flexible line-by-line format (with MODEL field)
                     r"INTENT:\s*(system_introduction|sld_calculation|generation|fitting).*?SAMPLE_DESCRIPTION:\s*(.*?).*?DATA_PATH:\s*(.*?).*?PARAMETERS:\s*(.*?).*?MODEL:\s*(.*?)(?:\n|$)",
-                    # Pattern 3: Fallback without MODEL field (for backward compatibility)
+                    # Pattern 5: Fallback without MODEL field (for backward compatibility)
                     r"INTENT:\s*(system_introduction|sld_calculation|generation|fitting)\s*\n?\s*SAMPLE_DESCRIPTION:\s*(.*?)\s*\n?\s*DATA_PATH:\s*(.*?)\s*\n?\s*PARAMETERS:\s*(.*?)(?:\n|$)",
-                    # Pattern 4: More flexible line-by-line format (without MODEL field)
+                    # Pattern 6: More flexible line-by-line format (without MODEL field)
                     r"INTENT:\s*(system_introduction|sld_calculation|generation|fitting).*?SAMPLE_DESCRIPTION:\s*(.*?).*?DATA_PATH:\s*(.*?).*?PARAMETERS:\s*(.*?)(?:\n|$)",
                 ]
 
@@ -1764,6 +1804,7 @@ class UnifiedSASAnalysisSystem:
                     data_path = ""
                     params = ""
                     model = "auto"  # Default value
+                    rad_type = "NEUTRON"  # Default radiation type
 
                     for line in lines:
                         line = line.strip()
@@ -1783,23 +1824,34 @@ class UnifiedSASAnalysisSystem:
                         elif line.startswith('MODEL:'):
                             model = line.split(':', 1)[1].strip()
                             print(f"Found model: '{model}'")
+                        elif line.startswith('RAD_TYPE:'):
+                            rad_type = line.split(':', 1)[1].strip()
+                            print(f"Found rad_type: '{rad_type}'")
 
                     if intent:
-                        print(f"✅ Line-by-line parsing successful: intent={intent}")
-                        intent_groups = (intent, sample_description, data_path, params, model)
+                        print(f"✅ Line-by-line parsing successful: intent={intent}, rad_type={rad_type}")
+                        intent_groups = (intent, sample_description, data_path, params, model, rad_type)
                     else:
                         print(f"❌ All parsing methods failed for: {coordinator_output}")
                         return {"success": False, "error": "Could not determine task intent from prompt"}
 
-                # Handle different pattern matches (with or without MODEL field)
-                if len(intent_groups) == 5:
+                # Handle different pattern matches (with or without MODEL/RAD_TYPE fields)
+                if len(intent_groups) == 6:
+                    # Full format with MODEL and RAD_TYPE
+                    intent, sample_description, data_path_str, params_str, requested_model, rad_type = intent_groups
+                    # Normalize model name (convert spaces to underscores, remove "model" suffix)
+                    if requested_model and requested_model != "auto":
+                        requested_model = requested_model.lower().replace(" ", "_").replace("_model", "")
+                elif len(intent_groups) == 5:
                     intent, sample_description, data_path_str, params_str, requested_model = intent_groups
+                    rad_type = "NEUTRON"  # Default if RAD_TYPE field not present
                     # Normalize model name (convert spaces to underscores, remove "model" suffix)
                     if requested_model and requested_model != "auto":
                         requested_model = requested_model.lower().replace(" ", "_").replace("_model", "")
                 elif len(intent_groups) == 4:
                     intent, sample_description, data_path_str, params_str = intent_groups
                     requested_model = "auto"  # Default if MODEL field not present
+                    rad_type = "NEUTRON"  # Default if RAD_TYPE field not present
                 else:
                     print(f"❌ Unexpected number of groups in intent_groups: {len(intent_groups)}")
                     return {"success": False, "error": "Could not parse coordinator output properly"}
@@ -1897,8 +1949,9 @@ I'm an intelligent SAS analysis system that can help you with three main capabil
                         density = float(density_match.group(1))
                         print(f"🔍 Extracted density from parameters: {density} g/cm³")
 
-                # Create SLD calculation task
-                sld_task = create_sld_calculation_task(formula, density, sample_description, self.api_key, self.llm_model)
+                # Create SLD calculation task with RAD_TYPE from coordinator
+                print(f"📡 SLD Radiation Type: {rad_type}")
+                sld_task = create_sld_calculation_task(formula, density, sample_description, rad_type, self.api_key, self.llm_model)
                 sld_crew = Crew(
                     agents=[create_sld_calculator_agent(self.api_key, self.llm_model)],
                     tasks=[sld_task],
@@ -1914,7 +1967,8 @@ I'm an intelligent SAS analysis system that can help you with three main capabil
                     "results": str(results),
                     "formula": formula,
                     "density": density,
-                    "sample_description": sample_description
+                    "sample_description": sample_description,
+                    "rad_type": rad_type
                 }
 
             elif intent == "generation":
@@ -2000,6 +2054,7 @@ I'm an intelligent SAS analysis system that can help you with three main capabil
                                             # Extract fitting results
                                             if 'plot_file' in tool_result:
                                                 result_info['plot_file'] = tool_result['plot_file']
+                                                print(f"✓ Extracted plot_file: {tool_result['plot_file']}")
                                             if 'fitted_parameters' in tool_result:
                                                 result_info['fitted_parameters'] = tool_result['fitted_parameters']
                                             if 'r_squared' in tool_result:

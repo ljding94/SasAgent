@@ -2,9 +2,11 @@
 
 import sys
 import os
+from pathlib import Path
 
-# Add parent directory to path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add project root to path
+project_root = Path(__file__).parent.parent  # Go up one level since we're in test/
+sys.path.insert(0, str(project_root))
 
 from crewai_sas_agents import UnifiedSASAnalysisSystem
 

@@ -3,7 +3,8 @@
 RAG/__pycache__/
 !SAS
 SAS/__pycache__/
-!test
+!test/*.py
+!test/*.txt
 test/__pycache__
 !data
 data/*

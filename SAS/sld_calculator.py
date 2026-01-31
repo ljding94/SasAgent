@@ -19,7 +19,7 @@ def calculate_sld(
     Args:
         formula: Molecular formula (e.g., 'H2O', 'H7D3O5', 'aa:AYL').
         density: Mass density in g/cm³.
-        wavelength: Neutron/x-ray wavelength in Å (default: 6.0 for neutrons).
+        wavelength: Neutron/x-ray wavelength in Å (default: 6.0 for neutrons, 1.54 for X-rays).
         is_neutron: True for neutron SLD, False for x-ray SLD.
 
     Returns:
@@ -33,13 +33,15 @@ def calculate_sld(
         if not formula or not isinstance(density, (int, float)) or density <= 0:
             raise ValueError("Invalid formula or density (must be positive).")
 
-        wavelength = wavelength or 6.0 if is_neutron else None
+        # Set default wavelength: 6.0 Å for neutrons, 1.54 Å for X-rays (Cu Kα)
+        if wavelength is None:
+            wavelength = 6.0 if is_neutron else 1.54
 
         if is_neutron:
             result = neutronSldAlgorithm(formula, density, wavelength)
             return {
                 "sld_real": result.neutron_sld_real * 1e6,  # Convert Å⁻² to 10⁻⁶ Å⁻²
-                "sld_imag": result.neutron_sld_imag * 1e6,  # Convert Å⁻² to 10⁻⁶ Å⁻²
+                #"sld_imag": result.neutron_sld_imag * 1e6,  # Convert Å⁻² to 10⁻⁶ Å⁻²
                 "inc_cross_section": result.neutron_inc_xs,
                 "abs_cross_section": result.neutron_abs_xs,
                 "length": result.neutron_length
@@ -48,7 +50,7 @@ def calculate_sld(
             result = xraySldAlgorithm(formula, density, wavelength)
             return {
                 "sld_real": result.xray_sld_real * 1e6,  # Convert Å⁻² to 10⁻⁶ Å⁻²
-                "sld_imag": result.xray_sld_imag * 1e6   # Convert Å⁻² to 10⁻⁶ Å⁻²
+                #"sld_imag": result.xray_sld_imag * 1e6   # Convert Å⁻² to 10⁻⁶ Å⁻²
             }
     except Exception as e:
         logger.error(f"SLD calculation failed for formula '{formula}': {str(e)}")
@@ -75,7 +77,8 @@ def calculate_sld_fallback(formula: str, density: float, wavelength: float = Non
             sld = mol.neutron.sld(density=density, wavelength=wavelength or 6.0)
         else:
             sld = mol.xray.sld(density=density)
-        return {"sld_real": sld[0] * 1e6, "sld_imag": sld[1] * 1e6}  # Convert Å⁻² to 10⁻⁶ Å⁻²
+        #return {"sld_real": sld[0] * 1e6, "sld_imag": sld[1] * 1e6}  # Convert Å⁻² to 10⁻⁶ Å⁻²
+        return {"sld_real": sld[0] * 1e6}  # Convert Å⁻² to 10⁻⁶ Å⁻²
     except ImportError:
         raise ValueError("Neither SasView SLD calculator nor periodictable is available")
     except Exception as e:
